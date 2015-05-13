@@ -44,6 +44,13 @@
 
 21mysql数据库（一）_P_数据库基本概念_关系数据库_MySQL安装
 22mysql数据库（一）_P_登录、基本命令、创建数据库
+23mysql数据库（三）_P_建表_CRUD操作
+24mysql数据库（四）_P_完整性约束
+25mysql数据库（五）_P_数值类型
+26mysql数据库（六）_P_日期和时间类型
+
+34C++访问mysql_P_MySQL C API_MysqlDB类封装
+
 
 
 
