@@ -55,7 +55,7 @@
 31mysql数据库（十一）_P_子查询
 32mysql数据库（十二）_P_聚合函数_group by/having_group by与子查询
 33mysql数据库（十三）_P_MySQL函数
-
+34C++访问mysql_P_MySQL C API_MysqlDB类封装
 
 34C++访问mysql_P_MySQL C API_MysqlDB类封装
 
