@@ -3,67 +3,60 @@
 
 using namespace std;
 
-class book
+class Book
 {
 public:
     void setprice(double a);
     double getprice();
-    void settitle(char* a);
-    char* gettitle();
 private:
     double price;
-    char* title;
 };
-void book::setprice(double a)
+void Book::setprice(double a)
 {
     price = a;
 }
-double book::getprice()
+double Book::getprice()
 {
     return price;
 }
-void book::settitle(char* a)
+
+void display(Book& b)
 {
-    title = a;
-}
-char* book::gettitle()
-{
-    return title;
+    cout<<"The price is $"<<b.getprice()<<endl;
 }
 
-void display(book& b)
+Book& init(double p)
 {
-    cout<<"The price of "<<b.gettitle()<<" is $"<<b.getprice()<<endl;
-}
-
-book& init(char* t, double p)
-{
-    static book b;
-    b.settitle(t);
+    static Book b;
     b.setprice(p);
-    cout<<"&b = "<<&b<<endl;
+    cout<<"static &b = "<<&b<<endl;
     return b;
 }
 
 int main() 
 { 
-    book Alice;
-    Alice.settitle("Alice in wonderland");
-    Alice.setprice(29.9);
-    display(Alice);
+    //方式一:book_reference是指向静态对象b的引用 
+    Book& book_reference = init(49.9);
+    cout<<"&book_reference="<<&book_reference<<endl; 
 
-    //方式一:Harry是指向静态对象b的引用 
-    book& Harry = init("Harry Potter", 49.9);
-    cout<<"&Harry="<<&Harry<<endl; 
+    //方式二:book_object是新的对象,init返回b对象的引用然后把b对象赋值给book_object对象
+    Book book_object;
+    book_object = init(69.9);
+    cout<<"&book_object="<<&book_object<<endl; 
 
-    //方式二:Harry2是新的处对象,init返回b对象的应用然后把b对象赋值给Harry2对象
-    book Harry2;
-    Harry2 = init("Harry2 Potter", 69.9);
-    cout<<"&Harry2="<<&Harry2<<endl; 
+    display(book_reference);  
+    display(book_object);
 
 
+    book_reference.setprice(33.9);
 
-    display(Harry);  
+    book_object.setprice(99.9);
+
+    cout<<"=======book_reference引用对象========="<<endl;
+    display(book_reference);
+
+    cout<<"=======book_object对象========="<<endl;
+    display(book_object);
      
     return 0;
 }  
