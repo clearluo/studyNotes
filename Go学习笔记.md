@@ -5,12 +5,345 @@
 ### 基础类型和运算符
 
 1. s:=123这种定义是int32还是int64还是其他类型？试着赋值给其给uint32或int64看是否需要强制转换? s:=123这种定义是int类型,需要强制转换才能赋值给uint32或uint64
+
 2. 在 fmt.Printf 中使用下面的说明符来打印有关变量的相关信息：
     * %+v 打印包括字段在内的实例的完整信息
     * %#v 打印包括字段和限定类型名称在内的实例的完整信息
     * %T 打印某个类型的完整说明
 
+3. 在Go语言中,&& 和 || 是具有快捷性质的运算符，当运算符左边表达式的值已经能够决定整个表达式的值的时候（&& 左边的值为 false，|| 左边的值为 true），运算符右边的表达式将不会被执行。利用这个性质，如果你有多个条件判断，应当将计算过程较为复杂的表达式放在运算符的右侧以减少不必要的运算。
+
+4. 格式化说明
+  在格式化字符串里，%d 用于格式化整数（%x 和 %X 用于格式化 16 进制表示的数字），%g 用于格式化浮点型（%f 输出浮点数，%e 输出科学计数表示法），%0d 用于规定输出定长的整数，其中开头的数字 0 是必须的。%n.mg 用于表示数字 n 并精确到小数点后 m 位，除了使用 g 之外，还可以使用 e 或者 f，例如：使用格式化字符串 %5.2e 来输出 3.4 的结果为 3.40e+00。
+
+5. 运算符于优先级
+  有些运算符拥有较高的优先级，二元运算符的运算方向均是从左至右。下表列出了所有运算符以及它们的优先级，由上至下代表优先级由高到低：
+
+  | 优先级  |                运算符                 |
+  | :--: | :--------------------------------: |
+  |  7   |               ^    !               |
+  |  6   | *    /    %    <<    >>    &    &^ |
+  |  5   |         +    -    \|    ^          |
+  |  4   |   ==    !=    <    <=    >=    >   |
+  |  3   |                 <-                 |
+  |  2   |                 &&                 |
+  |  1   |                \|\|                |
+6. 获取字符串中某个字节的地址的行为是非法的,例如:&str[i]
 ### 函数
+
+#### 闭包
+
+匿名函数同样被称之为闭包(函数时语言的术语):它们被允许调用定义在其它环境下的变量.闭包可使得某个函数扑捉到一些外部状态,例如:函数被创建时的状态.另一种表示方式为:一个闭包继承了函数所声明时的作用域.这种状态(作用域内的变量)都被共享到闭包的环境中,因此这些变量可以在闭包中被操作,直到被销毁
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	f := colosure(10)
+	fmt.Println(f(1))
+	fmt.Println(f(2))
+	fmt.Println(f(3))
+}
+func colosure(x int) func(int) int {
+	fmt.Printf("%p\n", &x)
+	return func(y int) int {
+		fmt.Printf("%p\n", &x)
+		return x + y
+	}
+}
+
+/*
+//运行结果
+0xc0420381d0
+0xc0420381d0
+11
+0xc0420381d0
+12
+0xc0420381d0
+13
+*/
+
+```
+
+#### Defer
+
+使用defer实现代码追踪:
+```go
+package main
+
+import "fmt"
+
+func main() {
+	b()
+}
+func trace(s string) string {
+	fmt.Println("Entering:", s)
+	return s
+}
+func un(s string) {
+	fmt.Println("Leaving:", s)
+}
+func a() {
+	defer un(trace("a"))
+	fmt.Println("in a")
+}
+func b() {
+	defer un(trace("b"))
+	fmt.Println("in b")
+	a()
+}
+
+/*
+//运行结果
+Entering: b
+in b
+Entering: a
+in a
+Leaving: a
+Leaving: b
+*/
+
+```
+
+使用defer语句来记录函数的参数与返回值
+
+```go
+package main
+
+import (
+	"io"
+	"log"
+)
+
+func main() {
+	func1("Go")
+}
+func func1(s string) (n int, err error) {
+	defer func() {
+		log.Printf("func1(%q) = %d, %v\n", s, n, err)
+	}()
+	return 7, io.EOF
+}
+
+/*
+//运行结果
+2017/05/05 17:01:54 func1("Go") = 7, EOF
+*/
+
+```
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	for i := 0; i < 3; i++ {
+		defer fmt.Println(i)
+	}
+	for i := 0; i < 3; i++ {
+		defer func() {
+			fmt.Println(i)
+		}()
+	}
+}
+
+/*
+//运行结果
+3
+3
+3
+2
+1
+0
+*/
+
+```
+
+#### Panic,Recover
+
+beego中api接口每个携程有安装recover函数,不必自己安装,也就是说如果接口里面panic了,主进程不回挂掉,而如果接口里面自己又go func自己创建了携程,则此时携程里面如果panic会导致整个进程挂掉,避免的方式是在子携程函数里面再安装recover,如果此时panic,不会影响到主进程.
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	A()
+	B()
+	C()
+}
+func A() {
+	fmt.Println("Func A")
+}
+func B() {
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println("Recover in B")
+		}
+	}()
+	panic("Panic in B")
+}
+func C() {
+	fmt.Println("Func C")
+}
+
+/*
+//运行结果
+Func A
+Recover in B
+Func C
+*/
+```
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	var fs = [4]func(){}
+	for i := 0; i < 4; i++ {
+		defer fmt.Println("defer i = ", i)
+		defer func() { fmt.Println("defer_colosure i = ", i) }()
+		fs[i] = func() { fmt.Println("colosure i = ", i) }
+	}
+	for _, f := range fs {
+		f()
+	}
+}
+
+/*
+//运行结果
+colosure i =  4
+colosure i =  4
+colosure i =  4
+colosure i =  4
+defer_colosure i =  4
+defer i =  3
+defer_colosure i =  4
+defer i =  2
+defer_colosure i =  4
+defer i =  1
+defer_colosure i =  4
+defer i =  0
+*/
+```
+
+#### 变长参数
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	a := []int{1, 2, 3}
+	fmt.Println(a)
+	mytest(a...) // 此时为引用传递
+	fmt.Println(a)
+	x, y, z := 11, 22, 33
+	mytest(x, y, z) // 此时为值传递
+	fmt.Println(x, y, z)
+}
+func mytest(a ...int) {
+	for i := range a {
+		a[i] = 33
+	}
+}
+
+/*
+//运行结果
+[1 2 3]
+[33 33 33]
+11 22 33
+*/
+```
+
+#### 如何使切片可以存放不同数据类型
+
+func test(a ...interface{})传递验证
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	mytest(1, "aa", 88.6)
+}
+func mytest(a ...interface{}) {
+	fmt.Println(a)
+}
+
+/*
+//运行结果
+[1 aa 88.6]
+*/
+
+```
+
+#### 不使用递归但使用闭包实现斐波那契数列程序
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	fmt.Println(mytest(9))
+}
+func mytest(num int) int {
+	f := fibonacci()
+	for i := 0; i < num; i++ {
+		f()
+	}
+	return f()
+}
+func fibonacci() func() int {
+	back1, back2 := 1, 1
+	return func() int {
+		temp := back1
+		back1, back2 = back2, (back1 + back2)
+		return temp
+	}
+}
+
+// 运行结果
+// 55
+// 可使用数组存储每次计算的fibonacci的值,不必每次计算
+
+```
+
+#### 工厂函数
+
+一个返回值为另一个函数的函数可以被称之为工厂函数，这在您需要创建一系列相似的函数的时候非常有用：书写一个工厂函数而不是针对每种情况都书写一个函数。下面的函数演示了如何动态返回追加后缀的函数：
+
+```go
+func MakeAddSuffix(suffix string) func(string) string {
+	return func(name string) string {
+		if !strings.HasSuffix(name, suffix) {
+			return name + suffix
+		}
+		return name
+	}
+}
+```
+
+现在,我们可以生成如下函数:
+
+```go
+addBmp := MakeAddSuffix(".bmp")
+addJpeg := MakeAddSuffix(".jpeg")
+//然后调用它们：
+addBmp("file") // returns: file.bmp
+addJpeg("file") // returns: file.jpeg
+```
+
+可以返回其它函数的函数和接受其它函数作为参数的函数均被称之为高阶函数，是函数式语言的特点。我们已经在第 6.7 中得知函数也是一种值，因此很显然 Go 语言具有一些函数式语言的特性。闭包在 Go 语言中非常常见，常用于 goroutine 和管道操作
 
 ### 数组与切片
 
@@ -123,6 +456,29 @@ func c() *int {
 
 虽然 c()\*int 的返回值没有被提前声明，但是由于 c()\*int 的返回值是指针变量，那么在return将变量 i 的地址赋给返回值后，defer再次修改了 i 在内存中的实际值，因此return调用RET退出函数时返回值虽然依旧是原来的指针地址，但是其指向的内存实际值已经被成功修改了。
 即，我们假设的结论是正确的！
+
+思考以下示例,函数f返回时,变量ret的值是什么?
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	fmt.Println(f())
+}
+func f() (ret int) {
+	defer func() {
+		ret++
+	}()
+	return 1
+}
+/*
+变量ret的值为2,因为ret++是在执行return 1语句以后执行的,也就是说defer是在return以后才执行,这可用于在返回语句之后修改返回的error时使用
+*/
+```
+
+
 
 ## 三.官方标准库
 
