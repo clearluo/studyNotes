@@ -395,7 +395,215 @@ addJpeg("file") // returns: file.jpeg
   }
   ```
 * 试图 make() 一个结构体变量，会引发一个编译错误，这还不是太糟糕，但是 new() 一个映射并试图使用数据填充它，将会引发运行时错误！ 因为 new(Foo) 返回的是一个指向 nil 的指针，它尚未被分配内存。所以在使用 map 时要特别谨慎。
+#### append
 
+* 如果你想将切片 y 追加到切片 x 后面，只要将第二个参数扩展成一个列表即可：x = append(x, y...)
+
+* 将一个字符串追加到某一个字符数组的尾部
+
+  ```go
+  package main
+
+  import "fmt"
+
+  func main() {
+  	str := "abc中国sd"
+  	var b []byte
+  	b = append(b, str...)
+  	fmt.Println(string(b))
+  }
+  ```
+
+* 将切片 b 的元素追加到切片 a 之后：a = append(a, b...)
+
+* 复制切片 a 的元素到新的切片 b 上：b = make([]T, len(a)); copy(b, a)
+
+* 删除位于索引 i 的元素：a = append(a[:i], a[i+1:]...)
+
+* 切除切片 a 中从索引 i 至 j 位置的元素：a = append(a[:i], a[j:]...)
+
+* 为切片 a 扩展 j 个元素长度：a = append(a, make([]T, j)...)
+
+* 在索引 i 的位置插入元素 x：a = append(a[:i], append([]T{x}, a[i:]...)...)
+
+* 在索引 i 的位置插入长度为 j 的新切片：a = append(a[:i], append(make([]T, j), a[i:]...)...)
+
+* 在索引 i 的位置插入切片 b 的所有元素：a = append(a[:i], append(b, a[i:]...)...)
+
+* 取出位于切片 a 最末尾的元素 x：x, a = a[len(a)-1], a[:len(a)-1]
+
+* 将元素 x 追加到切片 a：a = append(a, x)
+
+* 因此，您可以使用切片和 append 操作来表示任意可变长度的序列。
+    从数学的角度来看，切片相当于向量，如果需要的话可以定义一个向量作为切片的别名来进行操作
+
+#### 切片的引用传递和append要点
+
+* Go语言中channel，slice，map这三种类型的实现机制类似指针，所以可以直接传递，而不用取地址后传递指针。（注：若函数需改变slice的长度，则仍需要取地址传递指针）
+
+* 引用传递,实际上是引用地址的值传递;append之所以需要接受返回值是因为每次append后需要返回切片底层对应数组的开始地址和切片长度;不说了,看例子
+
+  ```go
+  package main
+
+  import "fmt"
+
+  func main() {
+  	sourData := [5]int{0, 1, 2, 3, 4}
+  	data := sourData[0:4]
+  	fmt.Println(data)
+  	//mytest1(data)
+  	//mytest2(&data)
+  	mytest3(data)
+  	fmt.Println(data)
+  	fmt.Println(sourData)
+  }
+  func mytest1(data []int) {
+  	data = append(data, 33)
+  }
+  func mytest2(data *[]int) {
+  	*data = append(*data, 33)
+  }
+  func mytest3(data []int) {
+  	data[2] = 22
+  }
+
+  /*
+  //mytest1运行结果
+  [0 1 2 3]
+  [0 1 2 3]
+  [0 1 2 3 33]
+  //mytest2运行结果
+  [0 1 2 3]
+  [0 1 2 3 33]
+  [0 1 2 3 33]
+  //mytest3运行结果
+  [0 1 2 3]
+  [0 1 22 3]
+  [0 1 22 3 4]
+  */
+  ```
+
+* 切片三要素:起始地址,实际长度,容量长度;分析以下程序
+
+  ```go
+  package main
+
+  import "fmt"
+
+  func main() {
+  	data := make([]int, 1, 3)
+  	fmt.Printf("main中data地址:%p\n", data)
+  	fmt.Println("调用mytest前:", data)
+  	fmt.Printf("调用mytest前:len(data)=%d,cap(data)=%d\n", len(data), cap(data))
+  	data2 := mytest(data)
+  	fmt.Println("调用mytest后:", data)
+  	fmt.Printf("调用mytest后:len(data)=%d,cap(data)=%d\n", len(data), cap(data))
+  	fmt.Println("data2:", data2)
+  	fmt.Printf("data2地址:%p\n", data2)
+  	fmt.Printf("data2:len(data2)=%d,cap(data2)=%d\n", len(data2), cap(data2))
+  }
+  func mytest(x []int) []int {
+  	fmt.Printf("mytest中append前:len(x)=%d,cap(x)=%d\n", len(x), cap(x))
+  	x[0] = 11
+  	fmt.Printf("mytest中x地址:%p\n", x)
+  	x = append(x, 33)
+  	fmt.Printf("mytest中x地址:%p\n", x)
+  	fmt.Println("mytest中", x)
+  	fmt.Printf("mytest中append后:len(x)=%d,cap(x)=%d\n", len(x), cap(x))
+  	return x
+  }
+
+  /**
+  运行结果:
+  main中data地址:0xc0420026a0
+  调用mytest前: [0]
+  调用mytest前:len(data)=1,cap(data)=3
+  mytest中append前:len(x)=1,cap(x)=3
+  mytest中x地址:0xc0420026a0
+  mytest中x地址:0xc0420026a0
+  mytest中 [11 33]
+  mytest中append后:len(x)=2,cap(x)=3
+  调用mytest后: [11]
+  调用mytest后:len(data)=1,cap(data)=3
+  data2: [11 33]
+  data2地址:0xc0420026a0
+  data2:len(data2)=2,cap(data2)=3
+
+  个人分析:
+  切片包含:起始地址,实际长度,空间长度
+  我在mytest里面append虽然空间长度够,但是依然是值的方式修改了slice的实际长度,
+  此时main函数里面的slice实际长度依然没有改变,所以不影响main.
+  mytest里面append改变了slice的len,但是主函数里面的len没有改变, 虽然他们地址都一样,但是内容就不一样了
+  还有之所以append需要接收返回值也说明了这个问题;x = append(x, 33)
+  slice原型:
+  type slice struct{
+      array unsafe.Pointer
+      len int
+      cap int
+  }
+  */
+
+  ```
+
+* 注意： append 在大多数情况下很好用，但是如果你想完全掌控整个追加过程，你可以实现一个这样的 AppendByte 方法:
+
+  ```go
+  func AppendByte(slice []byte, data ...byte) []byte {
+      m := len(slice)
+      n := m + len(data)
+      if n > cap(slice) { // if necessary, reallocate
+          // allocate double what's needed, for future growth.
+          newSlice := make([]byte, (n+1)*2)
+          copy(newSlice, slice)
+          slice = newSlice
+      }
+      slice = slice[0:n]
+      copy(slice[m:n], data)
+      return slice
+  }
+  ```
+
+  func copy(dst, src []T) int copy 方法将类型为 T 的切片从源地址 src 拷贝到目标地址 dst，覆盖 dst 的相关元素，并且返回拷贝的元素个数。源地址和目标地址可能会有重叠。拷贝个数是 src 和 dst 的长度最小值。如果 src 是字符串那么元素类型就是 byte。如果你还想继续使用 src，在拷贝结束后执行 src = dst。
+
+#### copy
+* 假设s是一个字符串(本质上是一个字节数组),那么就可以通过c:=[]byte(s)来获取一个字节的切片c,另外,您还可以通过copy函数来达到相同的目的:copy(dst []byte, src string)
+
+#### 切片和垃圾回收
+* 切片的底层指向一个数组,该数组的实际容量可能要大于切片所定义的容量.只有在没有任何切片指向的时候,底层的数组内层才会被释放,这种特性有时会导致程序占用多余的内存.
+
+* 示例函数FindDigits将一个文件加载到内存,然后搜索其中所有的数字并返回一个切片
+
+  ```go
+  var digitRegexp = regexp.MustCompile("[0-9]+")
+  func main() {
+      FindDigits("./test.txt")
+  }
+  func FindDigits(filename string) []byte {
+      b, _ := ioutil.ReadFile(filename)
+      return digitRegexp.Find(b)
+  }
+  ```
+
+* 这段代码可以顺利运行,但返回的[]byte指向的底层是整个文件的数据.只要该返回的切片不被释放,垃圾回收器就不能释放整个文件所占用的内存.换句话说,一点点有用的数据却占用了整个文件的内存.
+
+* 想要避免这个问题,可以通过拷贝我们需要的部分到一个新的切片中:
+
+  ```go
+  var digitRegexp = regexp.MustCompile("[0-9]+")
+  func main() {
+      FindDigits("./test.txt")
+  }
+  func FindDigits(filename string) []byte {
+      b, _ := ioutil.ReadFile(filename)
+      return digitRegexp.Find(b)
+      c := make([]byte, len(b))
+      copy(c, b)
+      return c
+  }
+  ```
+
+  ​
 ### Map
 
 ### 指针
