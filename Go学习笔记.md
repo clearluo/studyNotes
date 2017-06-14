@@ -31,27 +31,63 @@
 
 6. 获取字符串中某个字节的地址的行为是非法的,例如:&str[i]
 
-7. 多变量赋值时，先计算所有相关值，然后再从左到右一次赋值
+7. 编译器会将未使用的局部变量当作错误，全局变量未使用没问题，常量不管是全局常量还是局部常量未使用都不报错；
+
+8. 引用类型包括slice、map和channel。他们有复杂的内部结构，除了申请内存外，还需要初始化相关属性；内置函数new计算类型大小，为其分配零值内存，返回指针。而make会被编译器翻译成具体的创建函数，由其分配内存和初始化成员结构，返回对象而非指针。
+
+9. 可通过自定义类型来实现枚举类型限制
 
     ```go
-    package main
-
-    import "fmt"
-
-    func main() {
-    	data, i := [3]int{0, 1, 2}, 0
-    	i, data[i] = 2, 100 // (i=0)->(i=2),(data[0]=100)
-    	fmt.Println(i)
-    	fmt.Println(data)
+    type Color int
+    const (
+    	Black Color = iota
+    	Red
+    	Blue
+    )
+    func test(c Color) {}
+    func main(){
+    	c := Black
+    	test(c)
+    	x:=1
+    	test(x) // Error: cannot use x (type int) as type Color in function argument
+    	test(1) // 常量会被编译器自动转换
     }
-    /**
-     运行结果
-     2
-     [100 1 2]
-     */
     ```
 
     ​
+
+10. 在常量数组中，如不提供类型和初始化值，那么视作与上一常量相同
+
+  ```go
+  const (
+  	s = "abc"
+  	x			// x = "abc"
+  )
+  ```
+
+  ​
+
+11. 多变量赋值时，先计算所有相关值，然后再从左到右一次赋值
+
+     ```go
+     package main
+
+     import "fmt"
+
+     func main() {
+     	data, i := [3]int{0, 1, 2}, 0
+     	i, data[i] = 2, 100 // (i=0)->(i=2),(data[0]=100)
+     	fmt.Println(i)
+     	fmt.Println(data)
+     }
+     /**
+      运行结果
+      2
+      [100 1 2]
+      */
+     ```
+
+     ​
 ### 函数
 
 #### 闭包
@@ -342,6 +378,46 @@ addJpeg("file") // returns: file.jpeg
 
 * 如果我们想让数组元素类型为任意类型的话可以使用空接口作为类型当使用值时我们必须先做一个类型判断
 
+* 要修改字符串，可先将其转换成[]rune或[]byte，完成后再转换为string。无论哪种转换，都会重新分配内存，并复制字节数组。
+
+  ```go
+  func main() {
+    s := "abcd"
+    bs := []byte(s)
+    bs[1] = 'B'
+    println(string(bs))
+    
+    u := "电脑"
+    us := []rune(u)
+    us[1] = '话'
+    println(string(us))
+  }
+  ```
+
+  用for循环遍历字符串时，也有byte和rune两种方式。
+
+  ```go
+  package main
+  import "fmt"
+  func main() {
+  	s := "abc汉字"
+  	for i := 0; i < len(s); i++ {
+  		fmt.Printf("%c,", s[i])
+  	}
+  	fmt.Println()
+  	for _, r := range s {
+  		fmt.Printf("%c,", r)
+  	}
+  }
+  /**
+  运行结果：
+  a,b,c,æ,±,,å,­,,
+  a,b,c,汉,字,
+  */
+  ```
+
+  ​
+
 * 由于长度也是数组类型的一部分，因此[3]int与[4]int是不同的类型，数组也就不能改变长度。数组之间的赋值是值的赋值，即当把一个数组作为参数传入函数的时候，传入的其实是该数组的副本，而不是它的指针。如果要使用指针，那么就需要用到后面介绍的slice类型了。验证函数传递
 
 * ```go
@@ -371,7 +447,6 @@ addJpeg("file") // returns: file.jpeg
   	arr[1] = 333
   	fmt.Println("test_slice:", arr)
   }
-
   ```
 
 * 注意:绝对不要用指针指向slice. 切片本身已经是一个引用类型,所以它本身就是一个指针.
@@ -630,6 +705,101 @@ addJpeg("file") // returns: file.jpeg
 ### Map
 
 ### 指针
+
+1. 指向数组的指针和指针数组
+
+   ```go
+   package main
+   import (
+   	"fmt"
+   )
+   func main() {
+   	a := [...]int{9: 1}
+   	var p *[10]int = &a // p是指向数组的指针
+   	fmt.Println(p)
+   	x, y := 1, 2
+   	b := [...]*int{&x, &y} // b是指针数组
+   	fmt.Println(b)
+   }
+   /**
+    运行结果:
+    &[0 0 0 0 0 0 0 0 0 1]
+    [0xc042008298 0xc0420082b0]
+   */
+   ```
+
+2. 返回局部变量指针是安全的，编译器会根据需要将其分配在GC Heap上。
+
+   ```go
+   func test() *int {
+     x := 100
+     return &x
+   }
+   ```
+
+3. 可以在unsafe.Pointer和任意类型指针间进行转换。
+
+   ```go
+   package main
+   import (
+   	"fmt"
+   	"unsafe"
+   )
+   func main() {
+   	x := 0x12345678
+   	p := unsafe.Pointer(&x)
+   	n := (*[4]byte)(p)
+   	for i := 0; i < len(n); i++ {
+   		fmt.Printf("%X ", n[i])
+   	}
+   }
+   /**
+    运行结果:
+    78 56 34 12
+    */
+   ```
+
+4. 将Pointer 转换成uintptr，可变相实现指针运算
+
+   ```go
+   package main
+   import (
+   	"fmt"
+   	"unsafe"
+   )
+   func main() {
+   	d := struct {
+   		s string
+   		x int
+   	}{"abc", 100}
+   	p := uintptr(unsafe.Pointer(&d)) // *struct -> Pointer -> uintptr
+   	p += unsafe.Offsetof(d.x)        // uintptr + offset
+   	p2 := unsafe.Pointer(p)          // uintptr -> Pointer
+   	px := (*int)(p2)                 // Pointer -> *int
+   	*px = 200                        // d.x = 200
+   	fmt.Printf("%#v\n", d)
+   	// 注意：GC把uintptr当成普通证书对象，它无法阻止“关联”对象被回收。
+   }
+   /**
+   运行结果:
+   struct { s string; x int }{s:"abc", x:200}
+   */
+   ```
+
+5. 函数传递
+
+   * 传递指针使得多个函数能操作同一个对象；
+   * 传递指针比较轻量级(8bytes)，只是传递内存地址，我们可以用指针传递体积大的结构体。如果用参数值传递的话, 在每次copy上面就会花费相对较多的系统开销（内存和时间）。所以当你要传递大的结构体的时候，用指针是一个明智的选择；
+   * Go语言中channel，slice，map这三种类型的实现机制类似指针，所以可以直接传递，而不用取地址后传递指针。（注：若函数需改变slice的长度，则仍需要取地址传递指针）；
+
+6. 哪些是值传递，哪些是引用传递？什么类型变量不需要((*s).x)这样引用，可以直接(s.x)，哪些只能((*s).x)？
+
+   * 基本数据类型，如int、float、string等是值类型，基本类型如果是指针都需要*s；
+   * 数组是值类型，不管是数组本身还是指向数组本身，都可以用a[1]这种方式，指针不需要前面加*；
+   * 结构体是值类型，结构体无论是值还是指针，都是直接使用(s.x);
+   * 切片是引用类型；内部指向底层数组；
+   * map是引用类型；
+   * channel是引用类型；
 
 ### 包
 
