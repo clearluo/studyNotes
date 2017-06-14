@@ -87,7 +87,8 @@
       */
      ```
 
-     ​
+
+
 ### 函数
 
 #### 闭包
@@ -701,7 +702,70 @@ addJpeg("file") // returns: file.jpeg
   }
   ```
 
-  ​
+### range
+
+注意：range会复制对象
+
+```go
+package main
+import "fmt"
+func main() {
+	a := [3]int{0, 1, 2}
+	for i, v := range a { // index、value都是从复制品取出
+		if i == 0 { // 在修改前，我们先修改原数组
+			a[1], a[2] = 999, 999
+			fmt.Println(a) // 确认修改有效，输出[0,999,999]
+		}
+		a[i] = v + 100 // 使用复制品中取出的value修改原数组
+	}
+	fmt.Println(a) // 输出[100,101,102]
+}
+/**
+运行结果
+[0 999 999]
+[100 101 102]
+*/
+```
+
+建议改用引用类型，其底层数据不会被复制
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	s := []int{1, 2, 3, 4, 5}
+	fmt.Printf("enter for:%p len(s)=%d\n", s, len(s))
+	for i, v := range s { // 复制 struct slice {pointer, len, cap}
+		if i == 0 {
+			s = s[:3] // 对slice的修改，不会影响range的长度
+			fmt.Printf("in    for:%p len(s)=%d\n", s, len(s))
+			s[2] = 100 // 对底层数据的修改
+		}
+		fmt.Println(i, v)
+	}
+	fmt.Printf("exit  for:%p len(s)=%d\n", s, len(s))
+	fmt.Println(s)
+}
+
+/**
+运行结果
+enter for:0xc04203bf50 len(s)=5
+in    for:0xc04203bf50 len(s)=3
+0 1
+1 2
+2 100
+3 4
+4 5
+exit  for:0xc04203bf50 len(s)=3
+[1 2 100]
+*/
+
+```
+
+另外两种引用类型map、channel都是指针包装，而不像slice是struct
+
 ### Map
 
 ### 指针
