@@ -224,7 +224,7 @@ func main() {
 
 #### Panic,Recover
 
-beego中api接口每个携程有安装recover函数,不必自己安装,也就是说如果接口里面panic了,主进程不回挂掉,而如果接口里面自己又go func自己创建了携程,则此时携程里面如果panic会导致整个进程挂掉,避免的方式是在子携程函数里面再安装recover,如果此时panic,不会影响到主进程.
+beego中api接口每个携程有安装recover函数,不必自己安装,也就是说如果接口里面panic了,主进程不会挂掉,而如果接口里面自己又go func自己创建了携程,则此时携程里面如果panic会导致整个进程挂掉,避免的方式是在子携程函数里面再安装recover,如果此时panic,不会影响到主进程.
 
 ```go
 package main
