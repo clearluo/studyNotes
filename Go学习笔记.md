@@ -124,7 +124,6 @@ func colosure(x int) func(int) int {
 0xc0420381d0
 13
 */
-
 ```
 
 #### Defer
@@ -164,7 +163,6 @@ in a
 Leaving: a
 Leaving: b
 */
-
 ```
 
 使用defer语句来记录函数的参数与返回值
@@ -540,7 +538,7 @@ addJpeg("file") // returns: file.jpeg
 
 * Go语言中channel，slice，map这三种类型的实现机制类似指针，所以可以直接传递，而不用取地址后传递指针。（注：若函数需改变slice的长度，则仍需要取地址传递指针）
 
-* 引用传递,实际上是引用地址的值传递;append之所以需要接受返回值是因为每次append后需要返回切片底层对应数组的开始地址和切片长度;不说了,看例子
+* 引用传递,实际上是引用地址的值传递;append之所以需要接收返回值是因为每次append后需要返回切片底层对应数组的开始地址和切片长度;不说了,看例子
 
   ```go
   package main
