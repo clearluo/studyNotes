@@ -64,7 +64,6 @@
   ```
 
 11. 多变量赋值时，先计算所有相关值，然后再从左到右一次赋值
-
      ```go
      package main
 
@@ -82,9 +81,6 @@
       [100 1 2]
       */
      ```
-
-
-
 ### 函数
 
 #### 闭包
@@ -1199,14 +1195,211 @@ exit  for:0xc04203bf50 len(s)=3
 
 #### 多重继承
 
-
+1. 多重继承指的是类型获得多个父类型行为的能力，它在传统的面向对象语言中通常是不被实现的（C++ 和 Python 例外）。因为在类继承层次中，多重继承会给编译器引入额外的复杂度。但是在 Go 语言中，通过在类型中嵌入所有必要的父类型，可以很简单的实现多重继承.
+2. 在 Go 中，类型就是类（数据和关联的方法）。Go 不知道类似面向对象语言的类继承的概念。继承有两个好处：代码复用和多态。
+3. 在 Go 中，代码复用通过组合和委托实现，多态通过接口的使用来实现：有时这也叫 组件编程（Component Programming）
+4. 许多开发者说相比于类继承，Go 的接口提供了更强大、却更简单的多态行为。
+5. 如果真的需要更多面向对象的能力，看一下 goop 包（Go Object-Oriented Programming），它由 Scott Pakin 编写: 它给 Go 提供了 JavaScript 风格的对象（基于原型的对象），并且支持多重继承和类型独立分派，通过它可以实现你喜欢的其他编程语言里的一些结构。
 
 #### 类型的Strings()方法和格式化描述符
 
+1. 当你广泛使用一个自定义类型时，最好为它定义 String()方法。从上面的例子也可以看到，格式化描述符 %T 会给出类型的完全规格，%#v 会给出实例的完整输出，包括它的字段（在程序自动生成 Go 代码时也很有用）
+
+   ```go
+   type TwoInts struct {
+       a int
+       b int
+   }
+   func main() {
+       two1 := new(TwoInts)
+       two1.a = 12
+       two1.b = 10
+       fmt.Printf("two1 is: %v\n", two1)
+       fmt.Println("two1 is:", two1)
+       fmt.Printf("two1 is: %T\n", two1)
+       fmt.Printf("two1 is: %#v\n", two1)
+   }
+   func (tn *TwoInts) String() string {
+       return "(" + strconv.Itoa(tn.a) + "/" + strconv.Itoa(tn.b) + ")"
+   }
+   ```
+
+2. 不要在 String() 方法里面调用涉及 String() 方法的方法，它会导致意料之外的错误，比如下面的例子，它导致了一个无限迭代（递归）调用（TT.String() 调用 fmt.Sprintf，而 fmt.Sprintf 又会反过来调用 TT.String()...），很快就会导致内存溢出：
+
+   ```go
+   type TT float64
+   func (t TT) String() string {
+       return fmt.Sprintf("%v", t)
+   }
+   t. String()
+   ```
+
 #### 垃圾回收和 SetFinalizer
 
+1. Go 开发者不需要写代码来释放程序中不再使用的变量和结构占用的内存，在 Go 运行时中有一个独立的进程，即垃圾收集器（GC），会处理这些事情，它搜索不再使用的变量然后释放它们的内存。可以通过 runtime 包访问 GC 进程;
+
+2. 通过调用 runtime.GC() 函数可以显式的触发 GC，但这只在某些罕见的场景下才有用，比如当内存资源不足时调用 runtime.GC()，它会在此函数执行的点上立即释放一大片内存，此时程序可能会有短时的性能下降（因为 GC 进程在执行）
+
+3. 如果想知道当前的内存状态，可以使用：下面的程序会给出已分配内存的总量，单位是 Kb。
+
+   ```go
+   var m runtime.MemStats
+   runtime.ReadMemStats(&m)
+   fmt.Printf("%d Kb\n", m.Alloc / 1024)
+   ```
+
+4. 如果需要在一个对象 obj 被从内存移除前执行一些特殊操作，比如写到日志文件中，可以通过如下方式调用函数来实现：
+
+   ```go
+   runtime.SetFinalizer(obj, func(obj *typeObj))
+   ```
+
+5. func(obj *typeObj) 需要一个 typeObj 类型的指针参数 obj，特殊操作会在它上面执行。func 也可以是一个匿名函数;
+
+6. 在对象被 GC 进程选中并从内存中移除以前，SetFinalizer 都不会执行，即使程序正常结束或者发生错误;
 
 ### 接口
+
+#### 基本概念
+
+1. 接口定义了一组方法（方法集），但是这些方法不包含（实现）代码：它们没有被实现(它们是抽象的)。接口里也不能包含变量。
+
+2. （按照约定，只包含一个方法的）接口的名字由方法名加 [e]r 后缀组成，例如 Printer、Reader、Writer、Logger、Converter 等等。还有一些不常用的方式（当后缀 er 不合适时），比如 Recoverable，此时接口名以 able 结尾，或者以 I 开头。
+
+3. Go 语言中的接口都很简短，通常它们会包含 0 个、最多 3 个方法。
+
+4. 不像大多数面向对象编程语言，在 Go 语言中接口可以有值，一个接口类型的变量或一个 接口值 ：var ai Namer，ai 是一个多字（multiword）数据结构，它的值是 nil。它本质上是一个指针，虽然不完全是一回事。指向接口值的指针是非法的，它们不仅一点用也没有，还会导致代码错误。
+
+5.  类型不需要显式声明它实现了某个接口：接口被隐式地实现。多个类型可以实现同一个接口。
+
+6.  实现某个接口的类型（除了实现接口方法外）可以有其他的方法。
+
+7.  一个类型可以实现多个接口。
+
+8.  接口类型可以包含一个实例的引用， 该实例的类型实现了此接口（接口是动态类型）。
+
+9. 即使接口在类型之后才定义，二者处于不同的包中，被单独编译：只要类型实现了接口中的方法，它就实现了此接口。
+
+10. 接口可以匿名嵌入其它接口,或嵌入到结构体中
+
+11. 将对象赋值给接口时,会发生拷贝,而接口内部存储的是指向这个复制品的指针,既无法修改原始对象的状态,也无法获取指针
+
+12. 接口调用不会做receiver的自动转换
+
+13. 只有当接口存储的类型和对象都为nil时,接口才等于nil
+
+    ```go
+    func main() {
+        var a interface{}
+        fmt.Println(a == nil)
+        var p *int = nil
+        a = p
+        fmt.Println(a == nil)
+    }
+    /*
+     * 运行结果
+     * true
+     * false
+     */
+    ```
+
+#### 接口嵌套接口
+
+1. 一个接口可以包含一个或多个其他的接口，这相当于直接将这些内嵌接口的方法列举在外层接口中一样。
+
+2. 比如接口 File 包含了 ReadWrite 和 Lock 的所有方法，它还额外有一个 Close() 方法;
+
+   ```go
+   type ReadWrite interface {
+       Read(b Buffer) bool
+       Write(b Buffer) bool
+   }
+   type Lock interface {
+       Lock()
+       Unlock()
+   }
+   type File interface {
+       ReadWrite
+       Lock
+       Close()
+   }
+   ```
+
+#### 类型断言:如何检测和转换接口变量的类型
+
+1. 一个接口类型的变量 varI 中可以包含任何类型的值，必须有一种方式来检测它的 动态 类型，即运行时在变量中存储的值的实际类型。在执行过程中动态类型可能会有所不同，但是它总是可以分配给接口变量本身的类型。通常我们可以使用 类型断言 来测试在某个时刻 varI 是否包含类型 T 的值:
+
+   ```go
+   v := varI.(T)       // unchecked type assertion
+   ```
+
+2. varI 必须是一个接口变量，否则编译器会报错：invalid type assertion: varI.(T) (non-interface type (type of varI) on left)
+
+3. 类型断言可能是无效的，虽然编译器会尽力检查转换是否有效，但是它不可能预见所有的可能性。如果转换在程序运行时失败会导致错误发生。更安全的方式是使用以下形式来进行类型断言:
+
+   ```go
+   if v, ok := varI.(T); ok {  // checked type assertion
+       Process(v)
+       return
+   }
+   // varI is not of type T
+   ```
+
+4. 如果转换合法，v 是 varI 转换到类型 T 的值，ok 会是 true；否则 v 是类型 T 的零值，ok 是 false，也没有运行时错误发生。
+
+5. 应该总是使用上面的方式来进行类型断言
+
+#### 类型断言:type switch
+
+1. 接口变量的类型也可以使用一种特殊形式的 switch 来检测：type-switch
+
+   ```go
+   switch t := areaIntf.(type) {
+   case *Square:
+       fmt.Printf("Type Square %T with value %v\n", t, t)
+   case *Circle:
+       fmt.Printf("Type Circle %T with value %v\n", t, t)
+   case nil:
+       fmt.Printf("nil value: nothing to check?\n")
+   default:
+       fmt.Printf("Unexpected type %T\n", t)
+   }
+   ```
+
+2. 可以用 type-switch 进行运行时类型分析，但是在 type-switch 不允许有 fallthrough
+
+#### 测试一个值是否实现了某接口
+
+1. 假定 v 是一个值，然后我们想测试它是否实现了 Stringer 接口，可以这样做:
+
+   ```go
+   type Stringer interface {
+       String() string
+   }
+   if sv, ok := v.(Stringer); ok {
+       fmt.Printf("v implements String(): %s\n", sv.String()) // note: sv, not v
+   }
+   ```
+
+2. 接口是一种契约，实现类型必须满足它，它描述了类型的行为，规定类型可以做什么。接口彻底将类型能做什么，以及如何做分离开来，使得相同接口的变量在不同的时刻表现出不同的行为，这就是多态的本质。
+
+3. 编写参数是接口变量的函数，这使得它们更具有一般性。
+
+4. 使用接口使代码更具有普适性。
+
+5. 标准库里到处都使用了这个原则，如果对接口概念没有良好的把握，是不可能理解它是如何构建的
+
+#### 使用方法集与接口
+#### 空接口
+#### 复制数据切片至空接口切片
+#### 接口与动态类型
+#### 动态方法调用
+#### 接口的提取
+#### 显示地指明类型实现了某个接口
+#### 空接口和函数重载
+#### 接口的继承
+#### Go中的面向对象
+
 
 ### 反射
 
