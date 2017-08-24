@@ -1380,6 +1380,36 @@ exit  for:0xc04203bf50 len(s)=3
        fmt.Printf("v implements String(): %s\n", sv.String()) // note: sv, not v
    }
    ```
+   ```go
+   package main
+
+   import (
+   	"fmt"
+   	"strconv"
+   )
+
+   type Stringer interface {
+   	String() string
+   }
+   type Data struct {
+   	A int
+   	B int
+   }
+
+   func main() {
+   	v := Data{1, 2}
+   	var a interface{}
+   	a = v
+   	if sv, ok := a.(Stringer); ok {
+   		fmt.Println(sv.String())
+   	}
+   }
+   func (t Data) String() string {
+   	return "(" + strconv.Itoa(t.A) + "/" + strconv.Itoa(t.B) + ")"
+   }
+   ```
+
+   ​
 
 2. 接口是一种契约，实现类型必须满足它，它描述了类型的行为，规定类型可以做什么。接口彻底将类型能做什么，以及如何做分离开来，使得相同接口的变量在不同的时刻表现出不同的行为，这就是多态的本质。
 
@@ -1390,15 +1420,308 @@ exit  for:0xc04203bf50 len(s)=3
 5. 标准库里到处都使用了这个原则，如果对接口概念没有良好的把握，是不可能理解它是如何构建的
 
 #### 使用方法集与接口
+
+1. 作用于变量上的方法实际上是不区分变量到底是指针还是值的。当碰到**接口类型值**时，这会变得有点复杂，原因是接口变量中存储的具体值是不可寻址的(非接口值可以寻址)，幸运的是，如果使用不当编译器会给出错误。考虑下面的程序
+
+   ```go
+   package main
+   import(
+   	"fmt"
+   )
+   type List []int
+
+   func (l List) Len() int {
+   	return len(l)
+   }
+   func (l *List) Append(val int) {
+   	*l = append(*l, val)
+   }
+
+   type Appender interface {
+   	Append(int)
+   }
+
+   func CountInto(a Appender, start, end int) {
+   	for i := start; i <= end; i++ {
+   		a.Append(i)
+   	}
+   }
+
+   type Lener interface {
+   	Len() int
+   }
+
+   func LongEnough(l Lener) bool {
+   	return l.Len()*10 > 42
+   }
+   func main() {
+   	// A bare value
+   	var lst List
+   	lst.Append(3) // 可以，因为作用于变量上的方法实际上是不区分变量到底是指针还是值的
+   	fmt.Println(lst)
+   	// compiler error:
+   	// cannot use lst (type List) as type Appender in argument to CountInto:
+   	//       List does not implement Appender (Append method has pointer receiver)
+   	// CountInto(lst, 1, 10) // 报错，CountInto中通过接口类型值使用了Append，
+   	if LongEnough(lst) { // VALID:Identical receiver type
+   		fmt.Printf("- lst is long enough\n")
+   	}
+   	// A pointer value
+   	plst := new(List)
+   	CountInto(plst, 1, 10) //VALID:Identical receiver type
+   	if LongEnough(plst) {
+   		// VALID: a *List can be dereferenced for the receiver
+   		fmt.Printf("- plst is long enough\n")
+   	}
+   }
+   ```
+
+   在 lst 上调用 CountInto 时会导致一个编译器错误，因为 CountInto 需要一个 Appender，而它的方法 Append 只定义在指针上。 在 lst 上调用 LongEnough 是可以的因为 'Len' 定义在值上。
+
+   在 plst 上调用 CountInto 是可以的，因为 CountInto 需要一个 Appender，并且它的方法 Append 定义在指针上。 在 plst 上调用 LongEnough 也是可以的，因为指针会被自动解引用
+
+2. 在**接口**上调用方法时，必须有和方法定义时相同的接收者类型或者是可以从具体类型 P 直接可以辨识的:
+
+   指针方法可以通过指针调用
+
+   值方法可以通过值调用
+
+   接收者是值的方法可以通过指针调用，因为指针会首先被解引用
+
+   接收者是指针的方法不可以通过值调用，因为存储在接口中的值没有地址
+
+   将一个值赋值给一个接口时，编译器会确保所有可能的接口方法都可以在此值上被调用，因此不正确的赋值在编译期就会失败
+
+3. Go 语言规范定义了**接口**方法集的调用规则:
+
+   类型 *T 的可调用方法集包含接受者为 *T 或 T 的所有方法集
+
+   类型 T 的可调用方法集包含接受者为 T 的所有方法
+
+   类型 T 的可调用方法集**不**包含接受者为 *T 的方法
+
 #### 空接口
+
+1. 每个 interface {} 变量在内存中占据两个字长：一个用来存储它包含的类型，另一个用来存储它包含的数据或者指向数据的指针
+
 #### 复制数据切片至空接口切片
+
+1. 假设你有一个 myType 类型的数据切片，你想将切片中的数据复制到一个空接口切片中，类似:
+
+   ```go
+   var dataSlice []myType = FuncReturnSlice()
+   var interfaceSlice []interface{} = dataSlice
+   ```
+
+2. 可惜不能这么做，编译时会出错：cannot use dataSlice (type []myType) as type []interface { } in assignment。原因是它们俩在内存中的布局是不一样的（参考 官方说明）。必须使用 for-range 语句来一个一个显式地复制: 
+
+   ```go
+   var dataSlice []myType = FuncReturnSlice()
+   var interfaceSlice []interface{} = make([]interface{}, len(dataSlice))
+   for ix, d := range dataSlice {
+       interfaceSlice[ix] = d
+   }
+   ```
+
 #### 接口与动态类型
+
+1. 和其它语言相比，Go 是唯一结合了接口值，静态类型检查（是否该类型实现了某个接口），运行时动态转换的语言，并且不需要显式地声明类型是否满足某个接口。该特性允许我们在不改变已有的代码的情况下定义和使用新接口。
+
+2. 接收一个（或多个）接口类型作为参数的函数，其实参可以是任何实现了该接口的类型。 实现了某个接口的类型可以被传给任何以此接口为参数的函数 。
+
+3. 这意味着对象可以根据提供的方法被处理（例如，作为参数传递给函数），而忽略它们的实际类型：它们能做什么比它们是什么更重要
+
+   ```go
+   type IDuck interface {
+       Quack()
+       Walk()
+   }
+   func DuckDance(duck IDuck) {
+       duck.Quack()
+       duck.Walk()
+   }
+   type Bird struct {
+       Name string
+   }
+   func (b *Bird) Quack() {
+       fmt.Println("I am quacking by",b.Name)
+   }
+   func (b *Bird) Walk() {
+       fmt.Println("I am walking by",b.Name)
+   }
+   func main() {
+       b := new(Bird)
+       b.Name="bird"
+       DuckDance(b)
+   }
+   /**
+    * 运行结果
+    * I am quacking by bird
+    * I am walking by bird
+    */
+   ```
+
 #### 动态方法调用
+
+1. 像 Python这类语言，动态类型是延迟绑定的（在运行时进行）：方法只是用参数和变量简单地调用，然后在运行时才解析（它们很可能有像 responds_to 这样的方法来检查对象是否可以响应某个方法，但是这也意味着更大的编码量和更多的测试工作）
+
+2. Go 的实现与此相反，通常需要编译器静态检查的支持：当变量被赋值给一个接口类型的变量时，编译器会检查其是否实现了该接口的所有函数。
+
+3. 因此 Go 提供了动态语言的优点，却没有其他动态语言在运行时可能发生错误的缺点。
+
+4. Go 的接口提高了代码的分离度，改善了代码的复用性，使得代码开发过程中的设计模式更容易实现。用 Go 接口还能实现 依赖注入模式
+
+   ```go
+   type xmlWriter interface {
+       WriteXML(w io.Writer) error
+   }
+   // Exported XML streaming function.
+   func StreamXML(v interface{}, w io.Writer) error {
+       if xw, ok := v.(xmlWriter); ok {
+           // It’s an  xmlWriter, use method of asserted type.
+           return xw.WriteXML(w)
+       }
+       // No implementation, so we have to use our own function (with perhaps reflection):
+       return encodeToXML(v, w)
+   }
+   // Internal XML encoding function.
+   func encodeToXML(v interface{}, w io.Writer) error {
+       // ...
+   }
+   ```
+
 #### 接口的提取
+
+1. 提取接口 是非常有用的设计模式，可以减少需要的类型和方法数量，而且不需要像传统的基于类的面向对象语言那样维护整个的类层次结构。
+
+2. Go 接口可以让开发者找出自己写的程序中的类型。假设有一些拥有共同行为的对象，并且开发者想要抽象出这些行为，这时就可以创建一个接口来使用。 假设我们需要一个新的接口 TopologicalGenus，用来给 shape 排序（这里简单地实现为返回 int）。我们需要做的是给想要满足接口的类型实现 Rank() 方法
+
+   ```go
+   type Shaper interface {
+       Area() float32
+   }
+   type TopologicalGenus interface {
+       Rank() int
+   }
+   type Square struct {
+       side float32
+   }
+   func (sq *Square) Area() float32 {
+       return sq.side * sq.side
+   }
+   func (sq *Square) Rank() int {
+       return 1
+   }
+   type Rectangle struct {
+       length, width float32
+   }
+   func (r Rectangle) Area() float32 {
+       return r.length * r.width
+   }
+   func (r Rectangle) Rank() int {
+       return 2
+   }
+   func main() {
+       r := Rectangle{5, 3} // Area() of Rectangle needs a value
+       q := &Square{5}      // Area() of Square needs a pointer
+       shapes := []Shaper{r, q}
+       fmt.Println("Looping through shapes for area ...")
+       for n, _ := range shapes {
+           fmt.Println("Shape details: ", shapes[n])
+           fmt.Println("Area of this shape is: ", shapes[n].Area())
+       }
+       topgen := []TopologicalGenus{r, q}
+       fmt.Println("Looping through topgen for rank ...")
+       for n, _ := range topgen {
+           fmt.Println("Shape details: ", topgen[n])
+           fmt.Println("Topological Genus of this shape is: ", topgen[n].Rank())
+       }
+   }
+   /**
+    * 运行结果
+    * Looping through shapes for area ...
+    * Shape details:  {5 3}
+    * Area of this shape is:  15
+    * Shape details:  &{5}
+    * Area of this shape is:  25
+    * Looping through topgen for rank ...
+    * Shape details:  {5 3}
+    * Topological Genus of this shape is:  2
+    * Shape details:  &{5}
+    * Topological Genus of this shape is:  1
+    */
+   ```
+
+3. 所以你不用提前设计出所有的接口；整个设计可以持续演进，而不用废弃之前的决定。类型要实现某个接口，它本身不用改变，你只需要在这个类型上实现新的方法
+
 #### 显示地指明类型实现了某个接口
+
+1. 如果你希望满足某个接口的类型显式地声明它们实现了这个接口，你可以向接口的方法集中添加一个具有描述性名字的方法。例如
+
+   ```go
+   type Fooer interface {
+       Foo()
+       ImplementsFooer()
+   }
+   ```
+
+2. 类型 Bar 必须实现 ImplementsFooer 方法来满足 Footer 接口，以清楚地记录这个事实 :
+
+   ```go
+   type Bar struct{}
+   func (b Bar) ImplementsFooer() {} 
+   func (b Bar) Foo() {}
+   ```
+
+3. 大部分代码并不使用这样的约束，因为它限制了接口的实用性。但是有些时候，这样的约束在大量相似的接口中被用来解决歧义
+
 #### 空接口和函数重载
+
+1. 我们看到函数重载是不被允许的。在 Go 语言中函数重载可以用可变参数 ...T 作为函数最后一个参数来实现。如果我们把 T 换为空接口，那么可以知道任何类型的变量都是满足 T (空接口）类型的，这样就允许我们传递任何数量任何类型的参数给函数，即重载的实际含义。函数 fmt.Printf 就是这样做的:
+
+   ```go
+   fmt.Printf(format string, a ...interface{}) (n int, errno error)
+   ```
+
+2. 这个函数通过枚举 slice 类型的实参动态确定所有参数的类型。并查看每个类型是否实现了 String() 方法，如果是就用于产生输出信息
+
 #### 接口的继承
+
+1. 当一个类型包含（内嵌）另一个类型（实现了一个或多个接口）的指针时，这个类型就可以使用（另一个类型）所有的接口方法。例如:
+
+   ```go
+   type Task struct {
+       Command string
+       *log.Logger
+   }
+   ```
+
+2. 这个类型的工厂方法想这样：
+
+   ```go
+   func NewTask(command string, logger *log.Logger) *Task {
+       return &Task{command, logger}
+   }
+   ```
+
+3. 当 log.Logger 实现了 Log() 方法后，Task 的实例 task 就可以调用该方法：**task.Log()**
+
+4. 类型可以通过继承多个接口来提供像 多重继承 一样的特性
+
+   ```go
+   type ReaderWriter struct {
+       *io.Reader
+       *io.Writer
+   }
+   ```
+
+5. 上面概述的原理被应用于整个 Go 包，多态用得越多，代码就相对越少。这被认为是 Go 编程中的重要的最佳实践。
+
+6. 有用的接口可以在开发的过程中被归纳出来。添加新接口非常容易，因为已有的类型不用变动（仅仅需要实现新接口的方法）。已有的函数可以扩展为使用接口类型的约束性参数：通常只有函数签名需要改变。对比基于类的 OO 类型的语言在这种情况下则需要适应整个类层次结构的变化
+
 #### Go中的面向对象
+
+
 
 
 ### 反射
