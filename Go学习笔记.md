@@ -1721,12 +1721,385 @@ exit  for:0xc04203bf50 len(s)=3
 
 #### Go中的面向对象
 
+1. Go 没有类，而是松耦合的类型、方法对接口的实现
 
+2. OO 语言最重要的三个方面分别是：封装，继承和多态，在 Go 中它们是怎样表现的呢？
 
+   封装(数据隐藏)：和别的 OO 语言有 4 个或更多的访问层次相比，Go 把它简化为了 2 层
+
+   ​    包范围内的：通过标识符首字母小写，对象 只在它所在的包内可见
+
+   ​    可导出的：通过标识符首字母大写，对象 对所在包以外也可见
+
+   继承：用组合实现：内嵌一个（或多个）包含想要的行为（字段和方法）的类型；多重继承可以通过内嵌多个类型实现
+
+   多态：用接口实现：某个类型的实例可以赋给它所实现的任意接口类型的变量。类型和接口是松耦合的，并且多重继承可以通过实现多个接口实现。Go 接口不是 Java 和 C# 接口的变体，而且：接口间是不相关的，并且是大规模编程和可适应的演进型设计的关键
 
 ### 反射
+#### 基本概念
+
+1. 反射可以从接口值反射到对象，也可以从对象反射回接口值
+
+#### 方法和类型的放射
+
+1. Kind()：kind总是返回底层类型（以下方法v.kind()返回reflect.Int）
+
+   ```go
+   func main() {
+       type MyInt int
+       var m MyInt = 5
+       v:=reflect.ValueOf(m)
+       fmt.Println(v.Kind())
+   }
+   ```
+
+2. Interface()：变量v的Interface()方法可以得到还原(接口)值，所以可以这样打印v的值：fmt.Println(v.Interface())
+
+   ```go
+   func main() {
+       var x float64 = 3.4
+       fmt.Println("type:",reflect.TypeOf(x))
+       v:=reflect.ValueOf(x)
+       fmt.Println("value:",v)
+       fmt.Println("type:",v.Type())
+       fmt.Println("kind:",v.Kind())
+       //x 是一个 float64 类型的值，reflect.ValueOf(x).Float() 返回这个 float64 类型的实际值；同样的适用于 Int(), Bool(), Complex(), String()
+       fmt.Println("value:",v.Float())
+       fmt.Println(v.Interface())
+       fmt.Printf("value is %5.2e\n",v.Interface())
+       y:=v.Interface().(float64)
+       fmt.Println(y)
+   }
+   /**
+    * 运行结果
+    *　type: float64
+    * value: 3.4
+    * type: float64
+    * kind: float64
+    * value: 3.4
+    * 3.4
+    * value is 3.40e+00
+    * 3.4
+    */
+   ```
+
+#### 通过反射修改(设置)值
+
+1. 反射中有些内容是需要用地址去改变它的状态的
+
+   ```go
+   func main() {
+       var x float64 = 3.4
+       fmt.Printf("&x = %p\n", &x)
+       v := reflect.ValueOf(x)
+       //v.SetFloat(3.1415) // Error: will panic: reflect.Value.SetFloat using unaddressable value
+       fmt.Println("settability of v:", v.CanSet())
+       v = reflect.ValueOf(&x)
+       fmt.Println(v)
+       fmt.Println("type of v:", v.Type())
+       v = v.Elem()
+       fmt.Println("The Elem of is:", v)
+       fmt.Println("settability of v:", v.CanSet())
+       v.SetFloat(3.1415)
+       fmt.Println(v.Interface())
+       fmt.Println(v)
+
+   }
+   /**
+    * 运行结果
+    * &x = 0xc0420381d0
+    * settability of v: false
+    * 0xc0420381d0
+    * type of v: *float64
+    * The Elem of is: 3.4
+    * settability of v: true
+    * 3.1415
+    * 3.1415
+    */
+   ```
+
+#### 反射结构
+
+1. 有些时候需要反射一个结构类型。NumField() 方法返回结构内的字段数量；通过一个 for 循环用索引取得每个字段的值 Field(i)
+
+2. 我们同样能够调用签名在结构上的方法，例如，使用索引 n 来调用：Method(n).Call(nil)
+
+   ```go
+   type NotknownType struct {
+       s1, s2, s3 string
+   }
+   func (n NotknownType) String() string {
+       return n.s1 + " - " + n.s2 + " - " + n.s3
+   }
+   var secret interface{} = NotknownType{"Ada", "Go", "Oberon"}
+   func main() {
+       value:=reflect.ValueOf(secret)
+       typ:=reflect.TypeOf(secret)
+       fmt.Println(typ)
+       knd:=value.Kind()
+       fmt.Println(knd)
+       for i:=0;i<value.NumField();i++{
+           fmt.Printf("Field %d:%v\n",i,value.Field(i))
+       }
+       results :=value.Method(0).Call(nil)
+       fmt.Println(results)
+   }
+   /**
+    * 运行结果
+    *　main.NotknownType
+    * struct
+    * Field 0:Ada
+    * Field 1:Go
+    * Field 2:Oberon
+    * [Ada - Go - Oberon]
+    */
+   ```
+
+3. 结构中只有被导出字段(首字母大写)才是可设置
+
+   ```go
+   type T struct {
+       A int
+       B string
+   }
+   func main() {
+       t := T{23, "skidoo"}
+       s := reflect.ValueOf(&t).Elem()
+       typeOfT := s.Type()
+       for i := 0; i < s.NumField(); i++ {
+           f := s.Field(i)
+           fmt.Printf("%d: %s %s=%v\n", i, typeOfT.Field(i).Name, f.Type(), f.Interface())
+       }
+       s.Field(0).SetInt(77)
+       s.Field(1).SetString("Sunset Strip")
+       fmt.Println("t is now", t)
+   }
+   /**
+    * 运行结果
+    * 0: A int=23
+    * 1: B string=skidoo
+    * t is now {77 Sunset Strip}
+    */
+   ```
+
+#### Printf和反射
+
+1. Printf 中的 ... 参数为空接口类型。Printf 使用反射包来解析这个参数列表。所以，Printf 能够知道它每个参数的类型。因此格式化字符串中只有%d而没有 %u 和 %ld，因为它知道这个参数是 unsigned 还是 long。这也是为什么 Print 和 Println 在没有格式字符串的情况下还能如此漂亮地输出
+
+   ```go
+   type Stringer interface {
+       String() string
+   }
+   type Celsius float64
+
+   func (c Celsius) String() string {
+       return strconv.FormatFloat(float64(c), 'f', 1, 64) + "°C"
+   }
+   type Day int
+   var dayName = []string{"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
+   func (day Day) String() string {
+       return dayName[day]
+   }
+   func main() {
+       print(Day(1), "was", Celsius(18.36))
+   }
+   func print(args ...interface{}) {
+       for i, arg := range args {
+           if i > 0 { os.Stdout.WriteString(" ") }
+           switch a := arg.(type) {
+           case Stringer:
+               os.Stdout.WriteString(a.String())
+           case int:
+               os.Stdout.WriteString(strconv.Itoa(a))
+           case string:
+               os.Stdout.WriteString(a)
+           default:
+               os.Stdout.WriteString("???")
+           }
+       }
+   }
+   /**
+    * 运行结果
+    * Tuesday was 18.4°C
+    */
+   ```
 
 ### Goroutine和Channel
+
+#### 基础概念
+ 1. 只要进程还活者,即便携程的创建者生命周期结束了,它创建的携程依然能够继续存活
+
+    ```go
+    func main() {
+        go go1()
+        time.Sleep(time.Second * 30)
+    }
+    func go1() {
+        defer fmt.Println("exit go1")
+        go func() {
+            for i := 0; i < 10; i++ {
+                fmt.Println(i)
+                time.Sleep(time.Second)
+            }
+        }()
+    }
+    ```
+
+ 2. 多核计算示例一
+
+    ```go
+    unc main() {
+        runtime.GOMAXPROCS(4)
+        start := time.Now().UnixNano() / 1000000
+        c := make(chan bool, 10)
+        for i := 0; i < 10; i++ {
+            go Go(c, i)
+        }
+        for i := 0; i < 10; i++ {
+            <-c
+        }
+        end := time.Now().UnixNano() / 1000000
+        fmt.Println("use:", end-start, "ms")
+    }
+    func Go(c chan bool, index int) {
+        a := 1
+        for i := 0; i < 900000000; i++ {
+            a += i
+        }
+        fmt.Println(index, a)
+        c <- true
+    }
+    ```
+
+ 3. 多核计算示例儿
+
+    ```go
+    func main() {
+        wg:=sync.WaitGroup{}
+        wg.Add(10)
+        runtime.GOMAXPROCS(runtime.NumCPU())
+        for i := 0; i < 10; i++ {
+            go Go(&wg, i)
+        }
+        wg.Wait()
+    }
+    func Go(wg *sync.WaitGroup, index int) {
+        a := 1
+        for i := 0; i < 1000000000; i++ {
+            a += i
+        }
+        fmt.Println(index, a)
+        wg.Done()
+    }
+    ```
+#### 素数筛选法
+1. 这里有一个来自 Go 指导的很赞的例子，打印了输出的素数，使用选择器（‘筛’）作为它的算法。每个 prime 都有一个选择器，如下图：
+
+2. 版本一:协程 filter(in, out chan int, prime int) 拷贝整数到输出通道，丢弃掉可以被 prime 整除的数字。然后每个 prime 又开启了一个新的协程，生成器和选择器并发请求:
+
+   ```go
+   func main() {
+       ch := make(chan int)
+       go generate(ch)
+       for {
+           prime := <-ch
+           fmt.Print(prime, " ")
+           ch1 := make(chan int)
+           go filter(ch, ch1, prime)
+           ch = ch1
+       }
+   }
+   func generate(ch chan int) {
+       for i := 2; ; i++ {
+           ch <- i
+       }
+   }
+   func filter(in, out chan int, prime int) {
+       for {
+           i := <-in
+           if i%prime != 0 {
+               out <- i
+           }
+       }
+   }
+   ```
+
+3. 版本二:引入了上边的习惯用法：函数 sieve、generate 和 filter 都是工厂；它们创建通道并返回，而且使用了协程的 lambda 函数。main 函数现在短小清晰：它调用 sieve() 返回了包含素数的通道，然后通过 fmt.Println(<-primes) 打印出来
+
+   ```go
+   func main() {
+       primes := sieve()
+       for {
+           fmt.Println(<-primes)
+       }
+   }
+   func generate() chan int {
+       ch := make(chan int)
+       go func() {
+           for i := 2; ; i++ {
+               ch <- i
+           }
+       }()
+       return ch
+   }
+   func filter(in chan int, prime int) chan int {
+       out := make(chan int)
+       go func() {
+           for {
+               if i := <-in; i%prime != 0 {
+                   out <- i
+               }
+           }
+       }()
+       return out
+   }
+   func sieve() chan int {
+       out := make(chan int)
+       go func() {
+           ch := generate()
+           for {
+               prime := <-ch
+               ch = filter(ch, prime)
+               out <- prime
+           }
+       }()
+       return out
+   }
+   ```
+
+4. 版本三,今日头条 Go 建千亿级微服务的实践
+
+   ```go
+   func main() {
+       origin, wait := make(chan int), make(chan struct{})
+       Processor(origin, wait)
+       for num := 2; num < 10000; num++ {
+           origin <- num
+       }
+       close(origin)
+       <-wait
+   }
+   func Processor(seq chan int, wait chan struct{}) {
+       go func() {
+           prime, ok := <-seq
+           if !ok {
+               close(wait)
+               return
+           }
+           fmt.Println(prime)
+           out := make(chan int)
+           Processor(out, wait)
+           for num := range seq {
+               if num%prime != 0 {
+                   out <- num
+               }
+           }
+           close(out)
+       }()
+   }
+   ```
+
+   ​
 
 ## 二.深入理解
 
