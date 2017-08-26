@@ -974,7 +974,7 @@ exit  for:0xc04203bf50 len(s)=3
    ​
 
 7. 引入一个包的执行流程？
-   ![Go学习笔记-包执行流程](F:\storage\studyNotes\picture\Go学习笔记-包执行流程.png)
+   ![Go学习笔记-包执行流程](.\picture\Go学习笔记-包执行流程.png)
 
 
 
@@ -1999,7 +1999,7 @@ exit  for:0xc04203bf50 len(s)=3
 #### 素数筛选法
 1. 这里有一个来自 Go 指导的很赞的例子，打印了输出的素数，使用选择器（‘筛’）作为它的算法。每个 prime 都有一个选择器，如下图：
 
-   ![Go学习笔记-素数筛选法](F:\storage\studyNotes\picture\Go学习笔记-素数筛选法.png)
+   ![Go学习笔记-素数筛选法](.\picture\Go学习笔记-素数筛选法.png)
 
 2. 版本一:协程 filter(in, out chan int, prime int) 拷贝整数到输出通道，丢弃掉可以被 prime 整除的数字。然后每个 prime 又开启了一个新的协程，生成器和选择器并发请求:
 
