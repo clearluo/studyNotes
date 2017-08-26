@@ -1,4 +1,4 @@
-<h1 align="center">Go学习笔记<h1>
+<h1 align="center">Go总结<h1>
 
 ## 一.基础语法
 
@@ -674,9 +674,9 @@ addJpeg("file") // returns: file.jpeg
   }
   ```
 
-* 这段代码可以顺利运行,但返回的[]byte指向的底层是整个文件的数据.只要该返回的切片不被释放,垃圾回收器就不能释放整个文件所占用的内存.换句话说,一点点有用的数据却占用了整个文件的内存.
+* 这段代码可以顺利运行,但返回的[]byte指向的底层是整个文件的数据.只要该返回的切片不被释放,垃圾回收器就不能释放整个文件所占用的内存.换句话说,一点点有用的数据却占用了整个文件的内存.
 
-* 想要避免这个问题,可以通过拷贝我们需要的部分到一个新的切片中:
+* 想要避免这个问题,可以通过拷贝我们需要的部分到一个新的切片中:
 
   ```go
   var digitRegexp = regexp.MustCompile("[0-9]+")
@@ -1995,6 +1995,8 @@ exit  for:0xc04203bf50 len(s)=3
 #### 素数筛选法
 1. 这里有一个来自 Go 指导的很赞的例子，打印了输出的素数，使用选择器（‘筛’）作为它的算法。每个 prime 都有一个选择器，如下图：
 
+   ![Go学习笔记-素数筛选法](F:\storage\studyNotes\picture\Go学习笔记-素数筛选法.png)
+
 2. 版本一:协程 filter(in, out chan int, prime int) 拷贝整数到输出通道，丢弃掉可以被 prime 整除的数字。然后每个 prime 又开启了一个新的协程，生成器和选择器并发请求:
 
    ```go
@@ -2098,8 +2100,79 @@ exit  for:0xc04203bf50 len(s)=3
        }()
    }
    ```
+### 零碎小例子
+1. 设置日期、时间、文件名+行号（打印错误信息，比较方便定位错误点，问题定位很有用）
+
+   ```go
+   package main
+
+   import(
+   	"log"
+   	"time"
+   )
+   func main() {
+       // 设置日期、时间、文件名+行号（打印错误信息，比较方便定位错误点，问题定位很有用）
+       log.SetFlags(log.LstdFlags | log.Lshortfile)
+       // 北京UTC+8 时间问题
+       time.Local = time.FixedZone("CST", 3600*8)
+       log.Println("打印日志")
+   }
+   ```
+
+2. 英文字母和汉子混在一起统计个数
+
+   ```go
+   package main
+
+   import (
+   	"fmt"
+   	"unicode/utf8"
+   )
+
+   func main() {
+   	str := "abc中d"
+   	fmt.Println(len(str))
+   	fmt.Println(len([]int32(str)))
+   	//   以下方法效率更高
+   	fmt.Println(utf8.RuneCountInString(str))
+   }
+
+   /*
+   运行结果
+   7
+   5
+   5
+   */
+   ```
+
+3. 字节码和字符串相互转换
+
+   ```go
+   package main
+
+   import (
+   	"crypto/md5"
+   	"encoding/hex"
+   	"fmt"
+   )
+
+   func main() {
+   	md5Str := md5.New()
+   	md5Str.Write([]byte(`123456`))
+   	fmt.Println(md5Str.Sum(nil))
+   	str := hex.EncodeToString(md5Str.Sum(nil))
+   	fmt.Println(string(str))
+   	byteStr, err := hex.DecodeString(str)
+   	if err != nil {
+   		fmt.Println(err)
+   	}
+   	fmt.Println(byteStr)
+   }
+
+   ```
 
    ​
+
 
 ## 二.深入理解
 
@@ -2244,7 +2317,64 @@ exit  for:0xc04203bf50 len(s)=3
    // [0 11 22]
    ```
 
+2. 另一个切片传递例子分析
+
+   ```go
+   package main
+
+   import "fmt"
+
+   func main() {
+   	data := make([]int, 1, 3)
+   	fmt.Printf("main中data地址:%p\n", data)
+   	fmt.Println("调用mytest前:", data)
+   	fmt.Printf("调用mytest前:len(data)=%d,cap(data)=%d\n", len(data), cap(data))
+   	data2 := mytest(data)
+   	fmt.Println("调用mytest后:", data)
+   	fmt.Printf("调用mytest后:len(data)=%d,cap(data)=%d\n", len(data), cap(data))
+   	fmt.Println("data2:", data2)
+   	fmt.Printf("data2地址:%p\n", data2)
+   	fmt.Printf("data2:len(data2)=%d,cap(data2)=%d\n", len(data2), cap(data2))
+   }
+   func mytest(x []int) []int {
+   	fmt.Printf("mytest中append前:len(x)=%d,cap(x)=%d\n", len(x), cap(x))
+   	x[0] = 11
+   	fmt.Printf("mytest中x地址:%p\n", x)
+   	x = append(x, 33)
+   	fmt.Printf("mytest中x地址:%p\n", x)
+   	fmt.Println("mytest中", x)
+   	fmt.Printf("mytest中append后:len(x)=%d,cap(x)=%d\n", len(x), cap(x))
+   	return x
+   }
+
+   /**
+   运行结果:
+   main中data地址:0xc0420026a0
+   调用mytest前: [0]
+   调用mytest前:len(data)=1,cap(data)=3
+   mytest中append前:len(x)=1,cap(x)=3
+   mytest中x地址:0xc0420026a0
+   mytest中x地址:0xc0420026a0
+   mytest中 [11 33]
+   mytest中append后:len(x)=2,cap(x)=3
+   调用mytest后: [11]
+   调用mytest后:len(data)=1,cap(data)=3
+   data2: [11 33]
+   data2地址:0xc0420026a0
+   data2:len(data2)=2,cap(data2)=3
+
+   个人分析:(不知对错)
+   切片包含:起始地址,实际长度,空间长度
+   我在mytest里面append虽然空间长度够,但是依然是以值的方式修改了slice的实际长度,
+   此时main函数里面的slice实际长度依然没有改变,所以不影响main.
+   */
+
+   ```
+
+   ​
+
 ### 函数相关
+
 1. 不使用递归但使用闭包实现斐波那契数列程序
 
    ```go
