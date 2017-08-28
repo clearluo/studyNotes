@@ -1,4 +1,8 @@
-<h1 align="center">Go总结<h1>
+<h1 align="center">Go个人总结<h1>
+
+
+
+[TOC]
 
 ## 一.基础语法
 
@@ -2401,7 +2405,11 @@ exit  for:0xc04203bf50 len(s)=3
    ```
 
 
-### 
 
+
+## 三.推荐文章
+
+1. [[]T 还是 []*T, 这是一个问题](http://colobu.com/2017/01/05/-T-or-T-it-s-a-question/ "[]T 还是 []*T, 这是一个问题")
+2. [Golang 的 JSON 使用小技巧](http://jsoniter.com/go-tips.cn.html?hmsr=toutiao.io&utm_medium=toutiao.io&utm_source=toutiao.io "Golang 的 JSON 使用小技巧") 
 
 
