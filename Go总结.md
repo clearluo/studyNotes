@@ -1925,7 +1925,9 @@ exit  for:0xc04203bf50 len(s)=3
 ### Goroutine和Channel
 
 #### 基础概念
- 1. 只要进程还活者,即便携程的创建者生命周期结束了,它创建的携程依然能够继续存活
+ 1. 如果channel没有设置缓存的话，取的操作要在放的操作前面；
+
+ 2. 只要进程还活者,即便携程的创建者生命周期结束了,它创建的携程依然能够继续存活
 
     ```go
     func main() {
@@ -1943,7 +1945,7 @@ exit  for:0xc04203bf50 len(s)=3
     }
     ```
 
- 2. 多核计算示例一
+ 3. 多核计算示例一
 
     ```go
     unc main() {
@@ -1969,7 +1971,7 @@ exit  for:0xc04203bf50 len(s)=3
     }
     ```
 
- 3. 多核计算示例儿
+ 4. 多核计算示例二
 
     ```go
     func main() {
@@ -2098,7 +2100,55 @@ exit  for:0xc04203bf50 len(s)=3
        }()
    }
    ```
+#### 实战示例
+
+1. 使用两个 goroutine 交替打印序列，一个 goroutinue 打印数字， 另外一个goroutine打印字母， 最终效果如下 12AB34CD56EF78GH910IJ 。
+
+   ```go
+   package main
+
+   import (
+   	"fmt"
+   	"runtime"
+   )
+
+   func main() {
+   	runtime.GOMAXPROCS(runtime.NumCPU())
+   	chan_n := make(chan bool)
+   	chan_c := make(chan bool, 1) // TODO 此处如果没有设置缓存，为什么会死锁？
+   	done := make(chan struct{})
+
+   	go func() {
+   		for i := 1; i < 11; i += 2 {
+   			<-chan_c
+   			fmt.Print(i)
+   			fmt.Print(i + 1)
+   			chan_n <- true
+   		}
+   	}()
+
+   	go func() {
+   		char_seq := []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K"}
+   		for i := 0; i < 10; i += 2 {
+   			<-chan_n
+   			fmt.Print(char_seq[i])
+   			fmt.Print(char_seq[i+1])
+   			chan_c <- true
+   		}
+   		done <- struct{}{}
+   	}()
+
+   	chan_c <- true
+   	<-done
+   }
+
+   ```
+
+   ​
+
+
 ### 零碎小例子
+
 1. 设置日期、时间、文件名+行号（打印错误信息，比较方便定位错误点，问题定位很有用）
 
    ```go
@@ -2166,7 +2216,6 @@ exit  for:0xc04203bf50 len(s)=3
    	}
    	fmt.Println(byteStr)
    }
-
    ```
 
    ​
