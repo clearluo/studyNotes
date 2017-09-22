@@ -4,6 +4,8 @@
 
 ### 镜像
 
+1. 镜像是只读的，容器在启动的时候创建一层可写层作为最上层。
+
 ### 容器
 
 ### 仓库
@@ -42,7 +44,29 @@
 
 ## 使用镜像
 
+### 常见命令
 
+1. 从 Docker Hub 仓库下载一个 Ubuntu 12.04 操作系统的镜像 
+
+   ```dockerfile
+   docker pull ubuntu:12.04
+   ```
+
+   ​
+
+2. 显示本地已有的镜像
+
+   ```dockerfile
+   docker images
+   ```
+
+3. 创建一个容器，让其中运行bash应用
+
+   ```dockerfile
+   docker run -t -i ubuntu:12.04 /bin/bash
+   ```
+
+4. ​
 
 
 
