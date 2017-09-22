@@ -2141,6 +2141,46 @@ exit  for:0xc04203bf50 len(s)=3
    	chan_c <- true
    	<-done
    }
+   ```
+
+2. 以下例子中，设置缓存chan和无缓存chan运行结果的区别，为什么？
+
+   ```go
+   package main
+
+   import (
+   	"fmt"
+   	"time"
+   )
+
+   var countErr int64 = 0
+   var countSuc int64 = 0
+
+   func httpHandler() {
+   	// 以下两个chan有缓存和无缓存运行结果的区别，为什么?
+   	errCh := make(chan error, 1)
+   	resultCh := make(chan int, 1)
+   	go func() {
+   		defer close(errCh)
+   		defer close(resultCh)
+   		errCh <- fmt.Errorf("shit")
+   	}()
+   	select {
+   	case <-errCh:
+   		countErr++
+   	case <-resultCh:
+   		countSuc++
+   	}
+   }
+
+   func main() {
+   	for i := 0; i < 1000000; i++ {
+   		httpHandler()
+   	}
+   	<-time.After(5 * time.Second)
+   	fmt.Println("countErr:", countErr)
+   	fmt.Println("countSucc:", countSuc)
+   }
 
    ```
 
