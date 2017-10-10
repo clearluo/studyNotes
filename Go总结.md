@@ -354,14 +354,218 @@ addJpeg("file") // returns: file.jpeg
 
 可以返回其它函数的函数和接受其它函数作为参数的函数均被称之为高阶函数，是函数式语言的特点。我们已经在第 6.7 中得知函数也是一种值，因此很显然 Go 语言具有一些函数式语言的特性。闭包在 Go 语言中非常常见，常用于 goroutine 和管道操作
 
+#### 函数的奇葩点
+
+1. Golang中函数被看做是值,函数值不可以比较，也不可以作为map的key
+
+   请问一下代码能编译通过吗？
+
+   ```go
+   package main
+
+   import "fmt"
+
+   func main(){
+   	array:=make(map[int]func()int)
+   	array[func()int{return 10}()] = func()int{
+   		return 12
+   	}
+   	fmt.Println(array)
+   	fmt.Println(array[10])
+   	fmt.Println(array[10]())
+   }
+   // 可以正常编译通过
+   ```
+
+   稍做改动，改成如下情况，还能编译通过吗？
+
+   ```go
+   import (
+   	"fmt"
+   )
+   func main(){
+   	array := make(map[func ()int]int)
+   	array[func()int{return 12}] = 10
+   	fmt.Println(array)
+   }
+   // 不能编译通过
+   ```
+
+   在Go语言中，函数被看做是第一类值：(first-class values)：函数和其他值一样，可以被赋值，可以传递给函数，可以从函数返回。也可以被当做是一种“函数类型”。例如：有函数func square(n int) int { return n * n }，那么就可以赋值f := square,而且还可以fmt.Println(f(3))（将打印出“9”）。
+
+   Go语言函数有两点很特别：
+   函数值类型不能作为map的key
+   函数值之间不可以比较，函数值只可以和nil作比较，函数类型的零值是nil
+
+2. Go语言中函数返回的是值的时候，不能赋值
+
+   请看下面例子:
+
+   ```go
+   type Employee struct {
+       ID int
+       Name string
+       Address string
+       DoB time.Time
+       Position string
+       Salary int
+       ManagerID int
+   }
+   func EmployeeByID(id int) Employee {
+       return Employee{ID:id}
+   }
+   func main(){
+       EmployeeByID(1).Salary = 0
+   }
+   ```
+
+   请问能编译通过吗？
+
+   运行，输出报错：`cannot assign to EmployeeByID(1).Salary`
+
+   在本例子中，函数`EmployeeById(id int)`返回的是值类型的，它的取值`EmployeeByID(1).Salary`也是一个值类型；值类型是什么概念？值类型就是和赋值语句`var a = 1`或`var a = hello world`等号`=`右边的`1`、`Hello world`是一个概念，他是不能够被赋值的，只有变量能够被赋值。
+
+   修改程序如下：
+
+   ```go
+   type Employee struct {
+       ID int
+       Name string
+       Address string
+       DoB time.Time
+       Position string
+       Salary int
+       ManagerID int
+   }
+   func EmployeeByID(id int) Employee {
+       return Employee{ID:id}
+   }
+   func main(){
+       var a = EmployeeByID(1)
+       a.Salary = 0
+   }
+   ```
+
+   这就可以编译通过了
+
+3. 匿名函数作用于陷阱
+
+   请看下面代码输出什么？
+
+   ```go
+   package main
+
+   import (
+   	"fmt"
+   )
+
+   func main() {
+   	var msgs []func()
+   	array := []string{
+   		"1", "2", "3", "4",
+   	}
+   	for _, e := range array {
+   		msgs = append(msgs, func() {
+   			fmt.Println(e)
+   		})
+   	}
+   	for _, v := range msgs {
+   		v()
+   	}
+   }
+
+   /*
+    答案:
+    4
+    4
+    4
+    4
+   */
+
+   ```
+
+   在上述代码中，匿名函数中记录的是循环变量的内存地址，而不是循环变量某一时刻的值。
+   想要输出1、2、3、4需要改为：
+
+   ```go
+   import (
+   	"fmt"
+   )
+   func main(){
+   	var msgs []func()
+   	array := []string{
+   		"1", "2", "3", "4",
+   	}
+   	for _, e := range array{
+   		elem := e
+   		msgs = append(msgs, func(){
+   			fmt.Println(elem)
+   		})
+   	}
+   	for _, v := range msgs{
+   		v()
+   	}
+   }
+   ```
+
+   其实就加了条elem := e看似多余，其实不，这样一来，每次循环后每个匿名函数中保存的就都是当时局部变量elem的值，这样的局部变量定义了4个，每次循环生成一个。
+
+   ​
+
 ### 数组与切片
 
 #### 基础概念
 * 数组长度也是数组类型的一部分，所以[5]int和[10]int是属于不同类型的。数组的编译时值初始化是按照数组顺序完成的
 
+  ```go
+  package main
+
+  import (
+  	"fmt"
+  	"reflect"
+  )
+
+  func main() {
+  	arrayA := [...]int{1, 2, 3}
+  	arrayB := [...]int{1, 2, 3, 4}
+  	fmt.Println(reflect.TypeOf(arrayA))
+  	fmt.Println(reflect.TypeOf(arrayB))
+  	fmt.Println(reflect.TypeOf(arrayA) == reflect.TypeOf(arrayB))
+  }
+  /*
+   [3]int
+   [4]int
+   false
+   */
+  ```
+
+  ​
+
 * 元素的数目，也称为长度或者数组大小必须是固定的并且在声明该数组时就给出（编译时需要知道数组长度以便分配内存）；数组长度最大为 2Gb
 
-* 如果我们想让数组元素类型为任意类型的话可以使用空接口作为类型当使用值时我们必须先做一个类型判断
+* 如果我们想让数组元素类型为任意类型的话可以使用空接口作为类型当使用值时我们必须先做一个类型判断;
+
+* 数组还可以指定一个索引和对应值的方式来初始化
+
+  ```go
+  package main
+
+  import (
+  	"fmt"
+  )
+
+  func main() {
+  	arrayA := [...]int{0: 1, 2: 1, 3: 4}
+  	fmt.Println(arrayA)
+  	fmt.Println(len(arrayA))
+  }
+  /*
+   [1 0 1 4]
+   4
+   */
+  ```
+
+  没错，定义了一个数组长度为4的数组，指定索引的数组长度和最后一个索引的数值相关，例如:`r := [...]int{99:-1}`就定义了一个含有100个元素的数组`r`，最后一个元素输出化为-1，其他的元素都是用0初始化。
 
 * 要修改字符串，可先将其转换成[]rune或[]byte，完成后再转换为string。无论哪种转换，都会重新分配内存，并复制字节数组。
 
@@ -764,13 +968,53 @@ exit  for:0xc04203bf50 len(s)=3
 
 5. 不要使用 new，永远用 make 来构造 map
 
-* 注意 如果你错误的使用 new() 分配了一个引用对象，你会获得一个空引用的指针，相当于声明了一个未初始化的变量并且取了它的地址：
+   注意 如果你错误的使用 new() 分配了一个引用对象，你会获得一个空引用的指针，相当于声明了一个未初始化的变量并且取了它的地址：
 
-* mapCreated := new(map[string]float32)
+   mapCreated := new(map[string]float32)
+
 
 6. map 类型是不存在锁的机制来实现这种效果(出于对性能的考虑),所以 map 类型是非线程安全的.当并行访问一个共享的 map 类型的数据，map 数据将会出错
 
 7. map和其他基本型别不同，它不是thread-safe，在多个go-routine存取时，必须使用mutex lock机制
+
+8. 当map为nil的时候，不能添加值
+
+   ```go
+   func main() {
+       var sampleMap map[string]int
+       sampleMap["test"] = 1
+       fmt.Println(sampleMap)
+   }
+   /*
+   报错：panic: assignment to entry in nil map
+   */
+   ```
+
+   必须使用make或者将map初始化之后，才可以添加元素。
+
+   以上代码可以改为:
+
+   ```go
+   unc main() {
+       var sampleMap map[string]int
+       sampleMap = map[string]int {
+           "test1":1,
+       }
+       sampleMap["test"] = 1
+       fmt.Println(sampleMap)
+   }
+   /*
+   map[test1:1 test:1]
+   */
+   ```
+
+9. 不能对map中的某个元素进行取地址&操作
+
+   ```go
+   a := &ages["bob"] // compile error: cannot take address of map element
+   ```
+
+   map中的元素不是一个变量，不能对map的元素进行取地址操作，禁止对map进行取地址操作的原因可能是map随着元素的增加map可能会重新分配内存空间，这样会导致原来的地址无效
 
 #### 提问要点
 
@@ -984,7 +1228,59 @@ exit  for:0xc04203bf50 len(s)=3
 
 4. 如果想知道结构体类型T的一个实例占用了多少内存，可以使用：size := unsafe.Sizeof(T{})
 
-5. 结构体序列化到json字符串时,指定某些字段如果为空则不序列话,或者指定某字段不序列化
+5. &dilbert.Position和(&dilbert).Position是不同的
+
+   `&dilbert.Position`相当于`&(dilbert.Position)`而非`(&dilbert).Position`
+
+   请看例子：
+
+   请问输出什么？
+
+   ```go
+   func main(){
+       type Employee struct {
+           ID int
+           Name string
+           Address string
+           DoB time.Time
+           Position string
+           Salary int
+           ManagerID int
+       }
+       var dilbert Employee
+       dilbert.Position = "123"
+       position := &dilbert.Position
+       fmt.Println(position)
+   }
+   // 0xc42006c220
+   ```
+
+   输出的是内存地址
+
+   修改一下，把`&dilbert.Position`改为`(&dilbert).Position`
+
+   ```go
+   func main(){
+       type Employee struct {
+           ID int
+           Name string
+           Address string
+           DoB time.Time
+           Position string
+           Salary int
+           ManagerID int
+       }
+       var dilbert Employee
+       dilbert.Position = "123"
+       position := &dilbert.Position
+       fmt.Println(position)
+   }
+   // 123
+   ```
+
+   ​
+
+6. 结构体序列化到json字符串时,指定某些字段如果为空则不序列话,或者指定某字段不序列化
 
    ```go
    type Message struct {
@@ -1108,6 +1404,59 @@ exit  for:0xc04203bf50 len(s)=3
 6. 因为方法是函数，所以同样的，不允许方法重载，即对于一个类型只能有一个给定名称的方法。但是如果基于接收者类型，是有重载的：具有同样名字的方法可以在 2 个或多个不同的接收者类型上存在；
 
 7. 别名类型不能有它原始类型上已经定义过的方法；
+
+8. 函数允许nil指针作为参数，也允许用nil作为方法的接收器
+
+   请看下面的例子，请问能编译通过吗？
+
+   ```go
+   import (
+   	"fmt"
+   )
+   type littleGirl struct{
+   	Name string
+   	Age int
+   }
+   func(this littleGirl) changeName(name string){
+   	fmt.Println(name)
+   }
+   func main(){
+   	little := littleGirl{Name:"Rose", Age:1}
+   	little = nil
+   	little.changeName("yoyo")
+   	fmt.Println(little)
+   }
+   //不能编译通过，显示"cannot use nil as type littleGirl in assignment"
+   ```
+
+   Go语言中，允许方法用nil指针作为其接收器，也允许函数将nil指针作为参数。而上述代码中的`littleGirl`不是指针类型，改为`*littleGirl`，然后变量`little`赋值为`&littleGirl{Name:"Rose", Age:1}`就可以编译通过了。并且，nil对于对象来说是合法的零值的时候，比如map或者slice，也可以编译通过并正常运行。
+
+9. 在声明方法时，如果一个类型名称本身就是一个指针的话，不允许出现在方法的接收器中
+
+   请看下面的例子，请问会编译通过吗？
+
+   ```go
+   import (
+   	"fmt"
+   )
+   type littleGirl struct{
+   	Name string
+   	Age int
+   }
+   type girl *littleGirl
+   func(this girl) changeName(name string){
+   	this.Name = name
+   }
+   func main(){
+   	littleGirl := girl{Name:"Rose", Age:1}
+   	
+   	girl.changeName("yoyo")
+   	fmt.Println(littleGirl)
+   }
+   // 不能编译通过，会提示“invalid receiver type girl(girl is a pointer type)”
+   ```
+
+   Go语言中规定，只有类型（Type）和指向他们的指针（*Type）才是可能会出现在接收器声明里的两种接收器，为了避免歧义，明确规定，如果一个类型名本身就是一个指针的话，是不允许出现在接收器中的。
 
    ​
 
