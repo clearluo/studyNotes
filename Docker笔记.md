@@ -140,9 +140,18 @@ client 		客户端
    docker cp index.html 17add7bbc58c://usr/share/nginx/html
    ```
 
-8. 保存容器
+8. 复制修改镜像标签
+
+   ```
+   docker tag 5db5f8471261 ouruser/sinatra:devel
+   ```
+
+   ​
+
+9. 保存容器
+
    ```dockerfile
-   docker commit -m 'fun' e7c34d924c31 nginx-fun:3.0
+   docker commit -m 'fun' -a "clearluo" e7c34d924c31 nginx-fun:3.0
    ```
    ​
 ## Dockerfile
@@ -174,11 +183,12 @@ client 		客户端
    Dockerfile中的每一行都产生一个新层
 
    ```
-    FROM 	base image
-    RUN 		执行命令
+    #			注释
+    FROM 		base image
+    RUN 		镜像创建过程中，执行命令
     ADD 		添加文件
     COPY 		拷贝文件
-    CMD 		执行命令
+    CMD 		容器启动后，执行的命令
     EXPOSE 	暴露端口
     WORKDIR 	指定路径
     MAINTAINER 维护者
@@ -205,7 +215,7 @@ client 		客户端
    docker create -v $PWD/data:/var/mydata --name data_container ubuntu
    docker run -it --volumes-from data_container ubuntu /bin/bash​
    ```
-## 多容器app
+## 多容器管理工具docker-compose
 
 1. Mac/Windows 自带
 
@@ -217,11 +227,27 @@ client 		客户端
    chmod a+x docker-compose
    ```
 
+3. docker-compose.yml常用命令
+   ```
+   build 		本地创建镜像
+   command 	覆盖缺省命令
+   depends_on	链接容器
+   ports 		暴露端口
+   volumes 	卷
+   image		pull镜像
+   ```
+
+4. docker-compose命令
+
+   ```
+   up 		启动服务
+   stp		停止服务
+   rm		删除服务中的各个容器
+   logs	观察各个容器的日志
+   ps		列出服务相关的容器
+   ```
+
    ​
-
-
-
-
 
 
 
