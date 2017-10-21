@@ -19,6 +19,8 @@ client 		客户端
 
 ### 容器
 
+1. 简单的说，容器是独立运行的一个或一组应用，以及它们的运行态环境。对应的，虚拟机可以理解为模拟运行的一整套操作系统（提供了运行态环境和其他系统环境）和跑在上面的应用。 
+
 ### 仓库
 
 1. 常见仓库
@@ -90,7 +92,7 @@ client 		客户端
    docker run 		运行container
    docker ps 		列出container
    docker rm 		删除container
-   docker rmi 		删除image
+   docker rmi 		删除image,注意：在删除镜像之前要先用 docker rm 删掉依赖于这个镜像的所有容器
    docker cp 		在host和container之间拷贝文件
    docker commit 	保存改动为新的image
    ```
@@ -146,14 +148,30 @@ client 		客户端
    docker tag 5db5f8471261 ouruser/sinatra:devel
    ```
 
-   ​
-
 9. 保存容器
 
    ```dockerfile
    docker commit -m 'fun' -a "clearluo" e7c34d924c31 nginx-fun:3.0
    ```
-   ​
+
+10. 存出镜像
+
+  如果要导出镜像到本地文件，可以使用docker save 命令
+
+  ```
+  docker save -o ubuntu_14.04.tar ubuntu:14.04
+  ```
+
+11. 载入镜像
+
+   可以使用docker load从导出的本地文件中再导入到本地镜像库
+
+   ```
+   docker load --input ubuntu_14.04.tar
+   或
+   docker load < ubuntu_14.04.tar
+   ```
+
 ## Dockerfile
 
 1. 通过Dockerfile创建镜像
