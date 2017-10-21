@@ -211,7 +211,7 @@ client 		客户端
     WORKDIR 	指定路径
     MAINTAINER 维护者
     ENV 		设定环境变量
-    ENTRYPOINT 容器入口
+    ENTRYPOINT 容器入口,配置容器启动后执行的命令，并且不可被 docker run 提供的参数覆盖。每个 Dockerfile 中只能有一个 ENTRYPOINT，当指定多个时，只有最后一个起效
     USER 		指定用户
     VOLUME 	mount point
    ```
