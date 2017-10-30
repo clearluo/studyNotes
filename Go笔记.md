@@ -2702,6 +2702,69 @@ exit  for:0xc04203bf50 len(s)=3
   虽然 c()\*int 的返回值没有被提前声明，但是由于 c()\*int 的返回值是指针变量，那么在return将变量 i 的地址赋给返回值后，defer再次修改了 i 在内存中的实际值，因此return调用RET退出函数时返回值虽然依旧是原来的指针地址，但是其指向的内存实际值已经被成功修改了。
   即，我们假设的结论是正确的！
 
+  D. 补充一条，defer声明时会先计算确定参数的值，defer推迟执行的仅是其函数体
+
+  ```go
+  package main
+
+  import (
+  	"fmt"
+  	"time"
+  )
+
+  func main() {
+  	defer P(time.Now())
+  	time.Sleep(5e9)
+  	fmt.Println("main ", time.Now())
+  }
+
+  func P(t time.Time) {
+  	fmt.Println("defer", t)
+  	fmt.Println("P    ", time.Now())
+  }
+
+  // 输出结果：
+  // main  2017-08-01 14:59:47.547597041 +0800 CST
+  // defer 2017-08-01 14:59:42.545136374 +0800 CST
+  // P     2017-08-01 14:59:47.548833586 +0800 CST
+  ```
+
+  E. defer作用域
+
+  1. defer 只对当前协程有效（main 可以看作是主协程）；
+
+  2. 当任意一条（主）协程发生 panic 时，会执行当前协程中 panic 之前已声明的 defer；
+
+  3. 在发生 panic 的（主）协程中，如果没有一个 defer 调用 recover()进行恢复，则会在执行完最后一个已声明的 defer 后，引发整个进程崩溃；
+
+  4. 主动调用 os.Exit(int) 退出进程时，defer 将不再被执行。
+
+     ```go
+     package main
+
+     import (
+     	"errors"
+     	"fmt"
+     	"time"
+     	// "os"
+     )
+
+     func main() {
+     	e := errors.New("error")
+     	fmt.Println(e)
+     	// （3）panic(e) // defer 不会执行
+     	// （4）os.Exit(1) // defer 不会执行
+     	defer fmt.Println("defer")
+     	// （1）go func() { panic(e) }() // 会导致 defer 不会执行
+     	// （2）panic(e) // defer 会执行
+     	time.Sleep(1e9)
+     	fmt.Println("over.")
+     	// （5）os.Exit(1) // defer 不会执行
+     }
+     ```
+
+     ​
+
 2. 思考以下示例,函数f返回时,变量ret的值是什么?
 
   ```go
