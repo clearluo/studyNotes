@@ -206,12 +206,12 @@ client 		客户端
     RUN 		镜像创建过程中，执行命令
     ADD 		添加文件
     COPY 		拷贝文件
-    CMD 		容器启动后，执行的命令
+    CMD 		容器启动后，执行的命令,Dockerfile 中可以有多个 CMD 指令，但只有最后一个生效。CMD 可以被 docker run 之后的参数替换
     EXPOSE 	暴露端口
-    WORKDIR 	指定路径
+    WORKDIR 	指定路径,为后面的 RUN, CMD, ENTRYPOINT, ADD 或 COPY 指令设置镜像中的当前工作目录,也是容器运行后默认目录
     MAINTAINER 维护者
-    ENV 		设定环境变量
-    ENTRYPOINT 容器入口,配置容器启动后执行的命令，并且不可被 docker run 提供的参数覆盖。每个 Dockerfile 中只能有一个 ENTRYPOINT，当指定多个时，只有最后一个起效
+    ENV 		设定环境变量,环境变量可被后面的指令使用
+    ENTRYPOINT 设置容器启动时运行的命令。Dockerfile 中可以有多个 ENTRYPOINT 指令，但只有最后一个生效。CMD 或 docker run 之后的参数会被当做参数传递给 ENTRYPOINT
     USER 		指定用户
     VOLUME 	mount point
    ```

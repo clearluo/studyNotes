@@ -2534,7 +2534,14 @@ exit  for:0xc04203bf50 len(s)=3
    ```
 
    ​
+### Context
 
+1. 使用时遵循context规则
+
+   不要将 Context放入结构体，Context应该作为第一个参数传入，命名为ctx。
+   即使函数允许，也不要传入nil的 Context。如果不知道用哪种Context，可以使用context.TODO()。
+   使用context的Value相关方法,只应该用于在程序和接口中传递和请求相关数据，不能用它来传递一些可选的参数
+   相同的 Context 可以传递给在不同的goroutine；Context 是并发安全的。
 
 ### 零碎小例子
 
