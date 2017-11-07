@@ -1,6 +1,8 @@
 #include <iostream>
 #include <stdlib.h>
-
+/*
+ * 函数返回对象应用
+ */
 using namespace std;
 
 class Book
