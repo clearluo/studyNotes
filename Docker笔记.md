@@ -204,14 +204,14 @@ client 		客户端
     #			注释
     FROM 		base image
     RUN 		镜像创建过程中，执行命令
-    ADD 		添加文件
-    COPY 		拷贝文件
+    ADD 		添加文件,ADD指令还支持通过URL从远程服务器读取资源并复制到镜像中.
+    COPY 		拷贝文件(推荐),指令只能从执行docker build所在的主机上读取资源并复制到镜像中
     CMD 		容器启动后，执行的命令,Dockerfile 中可以有多个 CMD 指令，但只有最后一个生效。CMD 可以被 docker run 之后的参数替换
     EXPOSE 	暴露端口
     WORKDIR 	指定路径,为后面的 RUN, CMD, ENTRYPOINT, ADD 或 COPY 指令设置镜像中的当前工作目录,也是容器运行后默认目录
     MAINTAINER 维护者
     ENV 		设定环境变量,环境变量可被后面的指令使用
-    ENTRYPOINT 设置容器启动时运行的命令。Dockerfile 中可以有多个 ENTRYPOINT 指令，但只有最后一个生效。CMD 或 docker run 之后的参数会被当做参数传递给 ENTRYPOINT
+    ENTRYPOINT 设置容器启动时运行的命令。Dockerfile 中可以有多个 ENTRYPOINT 指令，但只有最后一个生效。CMD 或 docker run 之后的参数会被当做参数传递给 ENTRYPOINT, 不会被忽略，一定会被执行
     USER 		指定用户
     VOLUME 	mount point
    ```
@@ -266,7 +266,22 @@ client 		客户端
    ```
 
    ​
+## 实际应用
 
+### Mysql使用
+
+```dockerfile
+docker run -d -p 3306:3306 -v /var/lib/mysql:/var/lib/mysql -e MYSQL_ROOT_PASSWORD=123456 mysql:5.7
+```
+
+### Redis使用
+
+```dockerfile
+docker run -d -p 6379:6379 -v /etc/redis/redis.conf:/etc/redis/redis.conf redis:4.0 redis-server /etc/redis/redis.conf --appendonly yes
+```
+
+* 可以在redis.conf中配置redis密码，在requirepass后面配置密码；
+* 刚启动容器就会自动退出，可在redis.conf中将daemonize yes注释
 
 
 
