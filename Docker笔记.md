@@ -80,6 +80,24 @@ client 		客户端
   $ sudo systemctl restart docker
   ```
 
+* Docker 是服务器----客户端架构。命令行运行`docker`命令的时候，需要本机有 Docker 服务。如果这项服务没有启动，可以用下面的命令启动
+
+  ```
+  # service 命令的用法
+  $ sudo service docker start
+
+  # systemctl 命令的用法
+  $ sudo systemctl start docker
+  ```
+
+* Docker 需要用户具有 sudo 权限，为了避免每次命令都输入`sudo`，可以把用户加入 Docker 用户组
+
+  ```
+  $ sudo usermod -aG docker $USER
+  ```
+
+  ​
+
 
 ## 常见命令
 
