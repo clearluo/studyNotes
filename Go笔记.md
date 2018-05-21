@@ -57,7 +57,7 @@
   )
   ```
 
-11. 多变量赋值时，先计算所有相关值，然后再从左到右一次赋值
+11. 多变量赋值时，先计算所有相关值，然后再从左到右依次赋值
      ```go
      package main
 
@@ -206,6 +206,30 @@ func main() {
 
 ```
 
+#### Return
+
+显式return返回前，会先修改命名返回参数：
+```go
+package main
+
+import "fmt"
+
+func main() {
+	fmt.Println(add(1, 2)) // 输出：203
+}
+
+// 显式return返回前，会先修改命名返回参数
+func add(x, y int) (z int) {
+	defer func() {
+		fmt.Println(z) // 输出：203
+	}()
+	z = x + y
+	return z + 200 // 执行顺序：(z = z + 200) -> (call defer) -> (ret)
+}
+```
+
+
+
 #### Panic,Recover
 
 beego中api接口每个携程有安装recover函数,不必自己安装,也就是说如果接口里面panic了,主进程不会挂掉,而如果接口里面自己又go func自己创建了携程,则此时携程里面如果panic会导致整个进程挂掉,避免的方式是在子携程函数里面再安装recover,如果此时panic,不会影响到主进程.
@@ -276,6 +300,37 @@ defer_colosure i =  4
 defer i =  0
 */
 ```
+
+如果需要保护代码片段，可将代码块重构成匿名函数，如此可确保后续代码被执行
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	test(8, 0)
+}
+
+// 如果需要保护代码片段，可将代码块重构成匿名函数，如此可确保后续代码被执行
+func test(x, y int) {
+	var z int
+	func() {
+		defer func() {
+			if recover() != nil {
+				z = 0
+			}
+		}()
+		z = x / y
+		return
+	}()
+	fmt.Println("x / y = ", z)
+}
+
+```
+
+
+
 
 #### 变长参数
 
@@ -362,9 +417,9 @@ addJpeg("file") // returns: file.jpeg
 
    ```go
    package main
-
+   
    import "fmt"
-
+   
    func main(){
    	array:=make(map[int]func()int)
    	array[func()int{return 10}()] = func()int{
@@ -454,11 +509,11 @@ addJpeg("file") // returns: file.jpeg
 
    ```go
    package main
-
+   
    import (
    	"fmt"
    )
-
+   
    func main() {
    	var msgs []func()
    	array := []string{
@@ -473,7 +528,7 @@ addJpeg("file") // returns: file.jpeg
    		v()
    	}
    }
-
+   
    /*
     答案:
     4
@@ -481,7 +536,7 @@ addJpeg("file") // returns: file.jpeg
     4
     4
    */
-
+   
    ```
 
    在上述代码中，匿名函数中记录的是循环变量的内存地址，而不是循环变量某一时刻的值。
@@ -510,7 +565,38 @@ addJpeg("file") // returns: file.jpeg
 
    其实就加了条elem := e看似多余，其实不，这样一来，每次循环后每个匿名函数中保存的就都是当时局部变量elem的值，这样的局部变量定义了4个，每次循环生成一个。
 
-   ​
+#### 匿名函数
+
+* 匿名函数可赋值给变量，做为结构字段，或者在channel里传送
+
+* 闭包复制的是原对象指针，这就很容易解释延迟引用现象。
+
+  ```go
+  package main
+  
+  import "fmt"
+  
+  func main() {
+  	f := test()
+  	f()
+  }
+  func test() func() {
+  	x := 100
+  	fmt.Printf("x (%p) = %d\n", &x, x)
+  	return func() {
+  		fmt.Printf("x (%p) = %d\n", &x, x)
+  	}
+  }
+  
+  /*
+   输出：
+   x (0xc04204c088) = 100
+   x (0xc04204c088) = 100
+  */
+  ```
+
+  
+
 
 ### 数组与切片
 
@@ -899,8 +985,8 @@ package main
 import "fmt"
 func main() {
 	a := [3]int{0, 1, 2}
-	for i, v := range a { // index、value都是从复制品取出
-		if i == 0 { // 在修改前，我们先修改原数组
+	for i, v := range a { // index、value都是从复制品取出(从a中复制整个数组对象)
+		if i == 0 { // 在修改前，我们先修改原数组(不是修改复制后的数组)
 			a[1], a[2] = 999, 999
 			fmt.Println(a) // 确认修改有效，输出[0,999,999]
 		}
