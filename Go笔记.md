@@ -1456,6 +1456,45 @@ exit  for:0xc04203bf50 len(s)=3
    }
    ```
 
+4. 通过匿名字段，可获得和继承类似的复用能力。依据编译器查找次序，只需在外层定义同名方法，就可以实现"override".
+
+   ```go
+   package main
+   
+   import "fmt"
+   
+   type User struct {
+   	id   int
+   	name string
+   }
+   
+   type Manager struct {
+   	User
+   	title string
+   }
+   
+   // 匿名字段可以像字段成员那样访问匿名字段方法法，编译器负责查找。
+   func (self *User) ToString() string {
+   	return fmt.Sprintf("User:%p,%v", self, self)
+   }
+   
+   // 如果Manager没有ToString方法，则会调用你名字段User的ToString方法
+   func (self *Manager) ToString() string {
+   	return fmt.Sprintf("Manager:%p,%v", self, self)
+   }
+   
+   // 通过匿名字段，可获得和继承类似的复用能力。依据编译器查找次序，只需在外层定义同名方法，就可以实现"override".
+   func main() {
+   	m := Manager{User{1, "Tom"}, "manager"}
+   	fmt.Printf("Manager:%p\n", &m)
+   	fmt.Println(m.ToString())
+   }
+   
+   ```
+
+   
+
+
 #### 命名冲突
 
 1. 当两个字段拥有相同的名字（可能是继承来的名字）时该怎么办呢？
@@ -2360,9 +2399,58 @@ exit  for:0xc04203bf50 len(s)=3
 ### Goroutine和Channel
 
 #### 基础概念
- 1. 如果channel没有设置缓存的话，取的操作要在放的操作前面；
+ 1. 如果channel没有设置缓存的话，取的操作要在存的操作前面；(真的吗？如下例子，这句话好像是无闻视频里面的，需要复盘视频)
 
- 2. 只要进程还活者,即便携程的创建者生命周期结束了,它创建的携程依然能够继续存活
+    ```go
+    package main
+    
+    import (
+    	"fmt"
+    	"time"
+    )
+    
+    func main() {
+    	exit := make(chan bool)
+    	go func() {
+    		fmt.Println("准备存")
+    		exit <- true // 存
+    		fmt.Println("结束存")
+    	}()
+    	time.Sleep(time.Second) // sleep1秒，让存现进行
+    	fmt.Println("准备取")
+    	<-exit // 取
+    	fmt.Println("结束取")
+    	time.Sleep(time.Second)
+    }
+    ```
+
+ 2. 异步方式通过判断缓冲区来决定是否阻塞。如果缓冲区已满，发送被阻塞；缓冲区为空，接收被阻塞。
+
+ 3. 向closed channel发送数据引发panic错误，向closed channel接受数据立即返回零值；而nil channel，无论收发都会被阻塞。
+
+ 4. 内置函数len返回未被读取的缓冲元素数量，cap返回缓冲区大小；
+
+ 5. 除了用range外，还可以用ok-idiom模式判断channel是否关闭
+
+    ```go
+    for {
+    		if id, ok := <-data; ok {
+    			fmt.Println(a)
+    		} else {
+    			break
+    		}
+    	}
+    ```
+
+    
+
+ 6. channel缓冲区是内部属性，并非类型构成要素。
+
+    ```go
+    var a, b chan int = make(chan int), make(chan int, 3)
+    ```
+
+ 7. 只要进程还活者,即便携程的创建者生命周期结束了,它创建的携程依然能够继续存活
 
     ```go
     func main() {
@@ -2380,7 +2468,7 @@ exit  for:0xc04203bf50 len(s)=3
     }
     ```
 
- 3. 多核计算示例一
+ 8. 多核计算示例一
 
     ```go
     unc main() {
@@ -2406,7 +2494,7 @@ exit  for:0xc04203bf50 len(s)=3
     }
     ```
 
- 4. 多核计算示例二
+ 9. 多核计算示例二
 
     ```go
     func main() {
