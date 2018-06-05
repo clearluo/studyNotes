@@ -2426,7 +2426,7 @@ exit  for:0xc04203bf50 len(s)=3
 
  2. 异步方式通过判断缓冲区来决定是否阻塞。如果缓冲区已满，发送被阻塞；缓冲区为空，接收被阻塞。
 
- 3. 向closed channel发送数据引发panic错误，向closed channel接受数据立即返回零值；而nil channel，无论收发都会被阻塞。
+ 3. 向closed channel发送数据引发panic错误，向closed channel接收数据立即返回零值；而nil channel，无论收发都会被阻塞。
 
  4. 内置函数len返回未被读取的缓冲元素数量，cap返回缓冲区大小；
 
@@ -2515,7 +2515,154 @@ exit  for:0xc04203bf50 len(s)=3
         wg.Done()
     }
     ```
+#### 模式
+
+1. 用简单工厂模式打包并发任务和channel
+
+   ```go
+   package main
+   import (
+   	"fmt"
+   	"math/rand"
+   	"time"
+   )
+   func NewTest() chan int {
+   	c := make(chan int)
+   	rand.Seed(time.Now().UnixNano())
+   	go func() {
+   		time.Sleep(3 * time.Second)
+   		c <- rand.Int()
+   	}()
+   	return c
+   }
+   func main() {
+   	t := NewTest()
+   	fmt.Println(<-t) // 等待goroutine 结束返回
+   }
+   ```
+
+2. 用channel实现信号量
+
+   ```go
+   package main
+   import (
+   	"fmt"
+   	"sync"
+   )
+   func main() {
+   	wg := sync.WaitGroup{}
+   	wg.Add(3)
+   	sem := make(chan int, 1)
+   	for i := 0; i < 3; i++ {
+   		go func(id int) {
+   			defer wg.Done()
+   			sem <- 1 // 向sem发送数据，阻塞或者成功。
+   			for x := 0; x < 3; x++ {
+   				fmt.Println(id, x)
+   			}
+   			<-sem // 接收数据，使得其他阻塞goroutine可以发送数据
+   		}(i)
+   	}
+   	wg.Wait()
+   }
+   ```
+
+3. 用closed channel发出退出通知
+
+   ```go
+   package main
+   import (
+   	"fmt"
+   	"sync"
+   	"time"
+   )
+   func main() {
+   	var wg sync.WaitGroup
+   	quit := make(chan bool)
+   	for i := 0; i < 2; i++ {
+   		wg.Add(1)
+   		go func(id int) {
+   			defer wg.Done()
+   			task := func() {
+   				fmt.Println(id, time.Now().Nanosecond())
+   				time.Sleep(time.Second)
+   			}
+   			for {
+   				select {
+   				case <-quit: // closed channel不会阻塞，因此可用作退出通知。
+   					return
+   				default: // 执行正常任务
+   					task()
+   				}
+   			}
+   		}(i)
+   	}
+   	time.Sleep(time.Second * 5) // 让测试goroutine运行一会
+   	close(quit)                 // 发出退出通知
+   	wg.Wait()
+   }
+   ```
+
+4. 用select实现超时(timeout)
+
+   ```go
+   package main
+   
+   import (
+   	"fmt"
+   	"time"
+   )
+   
+   func main() {
+   	w := make(chan bool)
+   	c := make(chan int, 2)
+   	go func() {
+   		select {
+   		case v := <-c:
+   			fmt.Println(v)
+   		case <-time.After(time.Second * 3):
+   			fmt.Println("timeout.")
+   		}
+   		w <- true
+   	}()
+   	//c <- 1 // 注释掉，引发timeout
+   	<-w
+   }
+   ```
+
+5. channel是第一类对象，可传参(内部实现指针)或者作为结构成员
+
+   ```go
+   package main
+   
+   import "fmt"
+   
+   type Request struct {
+   	data []int
+   	ret  chan int
+   }
+   
+   func NewRequest(data ...int) *Request {
+   	return &Request{data, make(chan int, 1)}
+   }
+   func Process(req *Request) {
+   	x := 0
+   	for _, i := range req.data {
+   		x += i
+   	}
+   	req.ret <- x
+   }
+   func main() {
+   	req := NewRequest(10, 20, 30)
+   	Process(req)
+   	fmt.Println(<-req.ret)
+   }
+   ```
+
+   
+
 #### 素数筛选法
+
 1. 这里有一个来自 Go 指导的很赞的例子，打印了输出的素数，使用选择器（‘筛’）作为它的算法。每个 prime 都有一个选择器，如下图：
 
    ![Go学习笔记-素数筛选法](./picture/Go学习笔记-素数筛选法.png)
