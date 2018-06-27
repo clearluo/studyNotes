@@ -880,7 +880,7 @@ addJpeg("file") // returns: file.jpeg
   	fmt.Printf("mytest中append前:len(x)=%d,cap(x)=%d\n", len(x), cap(x))
   	x[0] = 11
   	fmt.Printf("mytest中x地址:%p\n", x)
-  	x = append(x, 33)
+  	x = append(x, 33) // 此处成 x = append(x, 33, 44, 55, 66) 对比不同点
   	fmt.Printf("mytest中x地址:%p\n", x)
   	fmt.Println("mytest中", x)
   	fmt.Printf("mytest中append后:len(x)=%d,cap(x)=%d\n", len(x), cap(x))
