@@ -595,7 +595,6 @@ addJpeg("file") // returns: file.jpeg
   */
   ```
 
-  
 
 
 ### 数组与切片
@@ -1492,7 +1491,6 @@ exit  for:0xc04203bf50 len(s)=3
    
    ```
 
-   
 
 
 #### 命名冲突
@@ -2442,8 +2440,6 @@ exit  for:0xc04203bf50 len(s)=3
     	}
     ```
 
-    
-
  6. channel缓冲区是内部属性，并非类型构成要素。
 
     ```go
@@ -2659,7 +2655,6 @@ exit  for:0xc04203bf50 len(s)=3
    }
    ```
 
-   
 
 #### 素数筛选法
 
@@ -2914,13 +2909,13 @@ exit  for:0xc04203bf50 len(s)=3
 
    ```go
    package main
-
+   
    import (
    	"crypto/md5"
    	"encoding/hex"
    	"fmt"
    )
-
+   
    func main() {
    	md5Str := md5.New()
    	md5Str.Write([]byte(`123456`))
@@ -2935,7 +2930,38 @@ exit  for:0xc04203bf50 len(s)=3
    }
    ```
 
-   ​
+4. 获取函数名称，所在文件，所在行号
+
+   ```go
+   package main
+   
+   import (
+   	"fmt"
+   	"runtime"
+   )
+   
+   func main() {
+   	Foo()
+   }
+   func Foo() {
+   	fmt.Printf("我是 %s, %s 在调用我!\n", printMyName(), printCallerName())
+   	Bar()
+   }
+   func Bar() {
+   	fmt.Printf("我是 %s, %s 又在调用我!\n", printMyName(), printCallerName())
+   }
+   func printMyName() string {
+       // 0 代表当前函数，也是调用runtime.Caller的函数。1 代表上一层调用者，以此类推。
+   	pc, file, line, _ := runtime.Caller(1) 
+   	println(file, line)
+   	return runtime.FuncForPC(pc).Name()
+   }
+   func printCallerName() string {
+   	pc, _, _, _ := runtime.Caller(2)
+   	return runtime.FuncForPC(pc).Name()
+   }
+   
+   ```
 
 
 ## 二.深入理解
