@@ -47,7 +47,7 @@ client 		客户端
    docker push clearluo/whalesay
    ```
 
-   ​
+   
 
 ## 安装Docker
 
@@ -96,7 +96,7 @@ client 		客户端
   $ sudo usermod -aG docker $USER
   ```
 
-  ​
+  
 
 
 ## 常见命令
@@ -283,7 +283,7 @@ client 		客户端
    ps		列出服务相关的容器
    ```
 
-   ​
+   
 ## 实际应用
 
 ### Mysql使用
@@ -301,9 +301,9 @@ docker run -d -p 6379:6379 -v /etc/redis/redis.conf:/etc/redis/redis.conf redis:
 * 可以在redis.conf中配置redis密码，在requirepass后面配置密码；
 * 刚启动容器就会自动退出，可在redis.conf中将daemonize yes注释
 
+### windows golang挂载
 
-
-
+docker run -itv //d/go/gopath:/go golang
 
 
 
