@@ -303,7 +303,7 @@ docker run -d -p 6379:6379 -v /etc/redis/redis.conf:/etc/redis/redis.conf redis:
 
 ### windows golang挂载
 
-docker run -itv //d/go/gopath:/go golang
+docker run -itdv //d/svn/BR_B_DEV/goserver:/go --name=svn_b golang:1.14
 
 
 
