@@ -291,6 +291,12 @@ client 		客户端
 ```dockerfile
 docker run -d -p 3306:3306 -v /var/lib/mysql:/var/lib/mysql -e MYSQL_ROOT_PASSWORD=123456 mysql:5.7
 ```
+添加了时间同步机制，和网络选择，--net=host表示Docker网络和本机一样
+```dockerfile
+docker run --name mysql --net=host -e MYSQL_ROOT_PASSWORD='root@appinside' -d -p 3306:3306 \
+        -v/etc/localtime:/etc/localtime \
+        -v /data/mysql-data:/var/lib/mysql mysql:5.6
+```
 
 ### Redis使用
 
