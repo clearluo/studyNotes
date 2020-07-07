@@ -222,7 +222,7 @@ client 		客户端
     #			注释
     FROM 		base image
     RUN 		镜像创建过程中，执行命令
-    ADD 		添加文件,ADD指令还支持通过URL从远程服务器读取资源并复制到镜像中.
+    ADD 		添加文件,ADD指令还支持通过URL从远程服务器读取资源并复制到镜像中，压缩包会自动解压.
     COPY 		拷贝文件(推荐),指令只能从执行docker build所在的主机上读取资源并复制到镜像中
     CMD 		容器启动后，执行的命令,Dockerfile 中可以有多个 CMD 指令，但只有最后一个生效。CMD 可以被 docker run 之后的参数替换
     EXPOSE 	暴露端口
