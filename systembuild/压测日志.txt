@@ -1,0 +1,87 @@
+
+一、通过url:port/xxx直连并发可以达到1W，但是通过nginx代理，还是有各种问题
+
+400并发，持续300s 报错
+err2: Post "http://intest.h5tomb.99.com/account/register": dial tcp 192.168.9.24:80: connectex: Only one usage of each socket address (protocol/network address/port) is normally permitted.
+
+
+1000并发持续300s报错
+err2: Post "http://intest.h5tomb.99.com/account/register": dial tcp 192.168.9.24:80: connect: cannot assign requested address
+****************************
+修改参数：
+$ vi /etc/sysctl.conf
+net.ipv4.ip_local_port_range = 10000     65000      ---增加可用端口，意味着10000~65000端口可用
+net.ipv4.tcp_syncookies = 1	   --表示开启SYN Cookies。当出现SYN等待队列溢出时，启用cookies来处理，可防范少量SYN攻击，默认为0，表示关闭；
+net.ipv4.tcp_tw_reuse = 1	   --允许将TIME-WAIT sockets重新用于新的TCP连接，默认为0，表示关闭；
+net.ipv4.tcp_tw_recycle = 1    --快速回收socket资源，默认为0，修改为1
+net.ipv4.tcp_fin_timeout = 30  --调低端口释放后的等待时间，默认为60s，修改为15~30s
+net.ipv4.tcp_timestamps=1
+改完后，执行命令“sysctl -p”使参数生效，不需要reboot。
+****************************
+
+2000并发报错
+err2: Post "http://intest.h5tomb.99.com/account/register": dial tcp 192.168.9.24:80: socket: too many open files
+****************************
+解决方案：
+修改句柄数量
+vi /etc/security/limit.conf 最后面添加
+* hard nofile 1048576
+* soft nofile 1048576
+* hard nproc 65536
+* soft nproc 65536
+* soft stack 10240
+重新登录ulimit -n 查看句柄最大数量
+
+
+****************************
+2000并发请求持续300s,总共测试:600000 失败:0 成功率:100.00% 用时:5m5.984245469ss
+3000并发请求持续300s,总共测试:900000 失败:0 成功率:100.00% 用时:5m7.324488458ss 每次请求耗时:0.34ms
+4000并发请求持续300s,总共测试:1200000 失败:0 成功率:100.00% 用时:5m15.129059277ss 每次请求耗时:0.26ms
+10000并发请求持续300s,总共测试:3000000 失败:0 成功率:100.00% 用时:5m23.066577901ss 每次请求耗时:0.11ms
+10000并发请求持续1800s,总共测试:18000000 失败:2471 成功率:99.99% 用时:32m41.833315775ss 每次请求耗时:0.11ms
+15000并发持续300s报错
+Post "http://192.168.9.204:3021/serverDemo/test/abc": dial tcp 192.168.9.204:3021: connect: cannot assign requested address
+err2: Post "http://intest.h5tomb.99.com/account/register": read tcp 192.168.182.129:55168->192.168.9.24:80: read: connection reset by peer
+****************************
+解决方案：
+****************************
+
+nginx并发错误
+Post "http://192.168.9.204/serverDemo/test/abc": http: server closed idle connection
+Post "http://192.168.9.204/serverDemo/test/abc": read tcp 172.24.140.32:54133->192.168.9.204:80: read: connection reset by peer
+Post "http://192.168.9.204/serverDemo/test/abc": dial tcp 192.168.9.204:80: connect: connection timed out
+Post "http://192.168.9.204/serverDemo/test/abc": EOF
+****************************
+解决方案：
+****************************
+
+linux下的压测工具：webbench
+
+
+
+4000并发持续300s报错
+上面除了 too many open files没有，其他错误都有出现，还出现新的错误
+err2: Post "http://intest.h5tomb.99.com/account/register": http: server closed idle connection
+err2: Post "http://intest.h5tomb.99.com/account/register": http: server closed idle connection
+err2: Post "http://intest.h5tomb.99.com/account/register": http: server closed idle connection
+err2: Post "http://intest.h5tomb.99.com/account/register": http: server closed idle connection
+
+MySQL: ERROR 1040: Too many connections
+dler/game.DoReg] driver: bad connection
+
+SHOW VARIABLES LIKE '%connections%'
+show global status like 'Max_used_connections';
+
+场景一
+400并发持续300s， 总共测试:120000  失败:0     成功率:100.00% 用时:5m1.160318414s
+1000并发持续300s，总共测试:300000  失败:32    成功率:99.99%  用时:5m5.060948436s
+2000并发持续300s，总共测试:600000  失败:98    成功率:99.98%  用时:5m13.127044699s
+3000并发持续300s，总共测试:900000  失败:445   成功率:99.95%  用时:5m23.215895427s
+4000并发持续300s，总共测试:1200000 失败:14176 成功率:98.82%  用时:7m28.553934419s
+
+场景二
+1000并发持续300s，总共测试:300000 失败:0     成功率:100.00% 用时:5m6.110299971s
+2000并发持续300s，总共测试:600000 失败:47074 成功率:92.15%  用时:12m55.803350055s
+
+场景三
+1000并发持续300s，

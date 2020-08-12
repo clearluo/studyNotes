@@ -1,0 +1,19 @@
+syntax = "proto3";
+package monitor;
+// 服务端定义
+service Monitor {
+    // 服务端返馈信息方法
+    rpc Report(ReportRequest) returns(ReportRequestReply){}
+}
+// 包含用户名的请求信息
+message ReportRequest {
+    string action = 1;
+    string node = 2;
+    string data = 3;
+    int64 time = 4;
+}
+// 服务端响应信息
+message ReportRequestReply {
+    int32 code = 1;
+    string msg = 2;
+}
