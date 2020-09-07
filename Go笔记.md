@@ -981,7 +981,7 @@ addJpeg("file") // returns: file.jpeg
   }
   func FindDigits(filename string) []byte {
       b, _ := ioutil.ReadFile(filename)
-      return digitRegexp.Find(b)
+      b = digitRegexp.Find(b)
       c := make([]byte, len(b))
       copy(c, b)
       return c
