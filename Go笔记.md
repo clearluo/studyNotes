@@ -2493,7 +2493,7 @@ exit  for:0xc04203bf50 len(s)=3
  8. 多核计算示例一
 
     ```go
-    unc main() {
+    func main() {
         runtime.GOMAXPROCS(4)
         start := time.Now().UnixNano() / 1000000
         c := make(chan bool, 10)
